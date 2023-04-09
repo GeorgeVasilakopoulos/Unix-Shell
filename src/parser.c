@@ -14,7 +14,7 @@ char* skipWhiteSpaces(char* readbuf, char* readbufSize){
 }
 
 int isAlpharethmetic(char c){
-	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.'));
+	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.')||(c=='-'));
 }
 
 int isSpecialCharacter(char c){
@@ -61,7 +61,12 @@ char* getNextToken(char* readbuf, char* writebuf, char* readbufSize){
 }
 
 
-void forkExecute(int inputfd, int outputfd, char* commandName, char** arguments){
+void possiblyCloseFile(int filedes){
+	if(filedes != 1 && filedes != 0)close(filedes);
+}
+
+
+void forkExecute(int inputfd, int outputfd, char* commandName, char** arguments, int waitForChild){
 	pid_t pid = fork();
 	if(!pid){
 		dup2(inputfd,0);
@@ -70,7 +75,12 @@ void forkExecute(int inputfd, int outputfd, char* commandName, char** arguments)
 		printf("Status code %d\n",statusCode);
 		exit(statusCode);
 	}
-	wait(NULL);
+	printf("waiting for %s\n", commandName);
+	possiblyCloseFile(inputfd);
+	possiblyCloseFile(outputfd);
+	if(waitForChild){
+		while(wait(NULL) != pid);
+	}
 }
 
 
@@ -84,25 +94,36 @@ void interpretInstruction(char* readbuf){
 	int argumentCounter = 1;
 	int IOfd[2] = {0,1};
 	char* ptr = getNextToken(readbuf,commandName,length+readbuf);
+	if(!strcmp(commandName,"cd")){
+		ptr = getNextToken(ptr,commandName,length+readbuf);
+		chdir(commandName);
+		if(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
+			printf("cd: too many arguments");
+		}
+		return;
+	}
+
+
 	printf("Command name is %s\n",commandName);
 	arguments[0] = malloc(sizeof(char)*(strlen(commandName)+1));
 	strcpy(arguments[0],commandName);
 
 
 	char buffer[100]= {};
-	while(ptr != length + readbuf){
+	while(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
 		ptr = getNextToken(ptr,buffer,length+readbuf);
+		printf("buffer is %s\n", buffer);
 		if(!strcmp(buffer,"<")){
-			// printf("Hey\n");
 			if(skipWhiteSpaces(ptr,length + readbuf) == length + readbuf){
 				printf("Expected input file after \'<\'\n");
 				return;
 			}
 			ptr = getNextToken(ptr,buffer,length+readbuf);
+			possiblyCloseFile(IOfd[0]);
 			IOfd[0] = open(buffer,O_RDONLY);
 			if(IOfd[0]==-1){
-				//error
 				printf("Error in opening file \"%s\"\n",buffer);
+				return;
 			}
 
 		}
@@ -112,52 +133,48 @@ void interpretInstruction(char* readbuf){
 				return;
 			}
 			ptr = getNextToken(ptr,buffer,length+readbuf);
+			possiblyCloseFile(IOfd[1]);
 			IOfd[1] = open(buffer,O_RDWR|O_CREAT);
 			if(IOfd[1]==-1){
-				//error
 				printf("Error in opening file \"%s\"\n",buffer);
+				return;
 			}
 			printf("File opened successfully\n");
 		}
 		else if(!strcmp(buffer,"|")){
 			if(skipWhiteSpaces(ptr,length + readbuf) == length + readbuf){
-				printf("Expected file after pipe \'|\'\n");
+				printf("Expected instruction after pipe \'|\'\n");
 				return;
 			}	
-			if(IOfd[1] == 1){
-				int p[2];
-				pipe(p);
-				forkExecute(IOfd[0],p[1],commandName,arguments);
-				printf("hey broo\n");
-				// close(IOfd[0]);
-				IOfd[0] = p[0];
-				IOfd[1] = 1;
-				// dup2(p[0],0);
-				// dup2(IOfd[1],1);
-				for(int i=0;i<argumentCounter;i++){
-					free(arguments[i]);
-				}
-				argumentCounter = 1;
-				ptr = getNextToken(ptr,commandName,length+readbuf);
-				printf("Command name is %s\n",commandName);
-				arguments[0] = malloc(sizeof(char)*(strlen(commandName)+1));
-				strcpy(arguments[0],commandName);
+			int p[2];
+			pipe(p);
+			if(IOfd[1] == 1){printf("here we are!\n"); forkExecute(IOfd[0],p[1],commandName,arguments,0);}	//If the stdout is 1, redirect to the following instruction
+			else forkExecute(IOfd[0],IOfd[1],commandName,arguments,0);
+			possiblyCloseFile(p[1]);
+			IOfd[0] = p[0];
+			IOfd[1] = 1;
+			for(int i=0;i<argumentCounter;i++){
+				free(arguments[i]);
+				arguments[i] = NULL;
 			}
-			else{
-				//????
+			argumentCounter = 1;
+			ptr = getNextToken(ptr,commandName,length+readbuf);
+			arguments[0] = malloc(sizeof(char)*(strlen(commandName)+1));
+			strcpy(arguments[0],commandName);
+		}
+		else if(!strcmp(buffer,"&")){
+			if(skipWhiteSpaces(ptr,length + readbuf) == length + readbuf){
+				printf("Expected instruction after \'&\'\n");
+				return;
 			}
 		}
 		else{
 			arguments[argumentCounter] = malloc(sizeof(char)*(strlen(buffer)+1));
 			strcpy(arguments[argumentCounter++],buffer);
-			// printf("arg %s\n",arguments[argumentCounter-1]);
 		}
-
-		// ptr = getNextToken(ptr,buffer,length+readbuf);
-		// printf("%s\n"s,buffer);
 	}
-	forkExecute(IOfd[0],IOfd[1],commandName,arguments);
-	
+	printf("Exectuting %s\n",commandName);
+	forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);
 }
 
 
@@ -184,19 +201,16 @@ int main(){
     //     // Old Parent process. The C program will come here
     //     printf("This line will be printed\n");
     // }
-    // char buffer[]= "mkdir mydir"; 
+    // char buffer[]= "ls"; 
 	// interpretInstruction(buffer);
 
-	// char buffer3[] = "cd mydir";
-	// interpretInstruction(buffer3);
+	char buffer3[] = "cat test.txt test.txt test.txt | sort";
+	interpretInstruction(buffer3);
 
 
-	char buffer2[] = "echo 1 2 3 | ./test.exe ha > test.txt";
-	interpretInstruction(buffer2);
 	// char buffer2[] = "cd mydir"
     // printf("%d\n", isSpecialCharacter('>'));
 	// execvp("echo", buffer);
-
 
 	return 0;
 }
