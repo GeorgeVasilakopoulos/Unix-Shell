@@ -1,23 +1,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "hashtable.h"
 
-
-#define BUCKETNUMBER 100
-
-struct tableEntry{
-	void* data;
-	struct tableEntry* next;
-};
-
-
-
-typedef struct hashtable{
-	struct tableEntry*bucket[BUCKETNUMBER];
-	int sizeOfItem;
-	int itemsCount;
-	int(*hashFunction)(void*);
-}Hashtable;
 
 	
 void hashInit(Hashtable* table, int sizeOfItem, int (*hashFunction)(void*)){
@@ -57,7 +42,7 @@ const void* hashFind(Hashtable* table, void* data, int (*compare)(void*, void*))
 }
 
 
-void hashRemove(Hashtable* table, void* data, int (*compare(void*, void*))){
+void hashRemove(Hashtable* table, void* data, int (*compare)(void*, void*)){
 	int bucketID = table->hashFunction(data) % BUCKETNUMBER;
 	struct tableEntry* entry = table->bucket[bucketID];
 	if(entry==NULL)return;
@@ -79,6 +64,22 @@ void hashRemove(Hashtable* table, void* data, int (*compare(void*, void*))){
 		}
 		entry = entry->next;
 	}
+}
+
+
+void hashDestruct(Hashtable* table){
+	struct tableEntry* ptr;
+	for(int i=0;i<BUCKETNUMBER;i++){
+		ptr = table->bucket[i];
+		struct tableEntry* temp;
+		while(ptr){
+			free(ptr->data);
+			temp = ptr;
+			ptr = ptr->next;
+			free(temp); 
+		}
+	}
+
 }
 
 

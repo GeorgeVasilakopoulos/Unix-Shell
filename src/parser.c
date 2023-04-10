@@ -6,18 +6,21 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include "structures/list.h"
+#include "alias.h"
 
-char* skipWhiteSpaces(char* readbuf, char* readbufSize){
+
+const char* skipWhiteSpaces(const char* readbuf, const char* readbufSize){
 	while(readbuf != readbufSize && (*readbuf == ' ' || *readbuf == '\t' || *readbuf == '\n'))
 		readbuf++;
 	return readbuf;
 }
 
-int isAlpharethmetic(char c){
+int isAlpharethmetic(const char c){
 	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.')||(c=='-'));
 }
 
-int isSpecialCharacter(char c){
+int isSpecialCharacter(const char c){
 	switch(c){
 		case '>':
 		case '<':
@@ -31,15 +34,17 @@ int isSpecialCharacter(char c){
 
 
 
-char* getNextToken(char* readbuf, char* writebuf, char* readbufSize){
+const char* getNextToken(const char* readbuf, char* writebuf, const char* readbufSize){
 	readbuf = skipWhiteSpaces(readbuf,readbufSize);
 	if(readbuf == readbufSize)return readbuf;
 	if(*readbuf == '"'){
+		readbuf++;
 		while(readbuf != readbufSize && *readbuf != '"'){
 			*writebuf++ = *readbuf++;
 		}
 	}
 	else if(*readbuf == '\''){
+		readbuf++;
 		while(readbuf != readbufSize && *readbuf != '\''){
 			*writebuf++ = *readbuf++;
 		}
@@ -66,16 +71,16 @@ void possiblyCloseFile(int filedes){
 }
 
 
-void forkExecute(int inputfd, int outputfd, char* commandName, char** arguments, int waitForChild){
+void forkExecute(int inputfd, int outputfd, const char* commandName, const char* arguments[], int waitForChild){
 	pid_t pid = fork();
 	if(!pid){
 		dup2(inputfd,0);
 		dup2(outputfd,1);
-		int statusCode = execvp(commandName,arguments);
+		int statusCode = execvp(commandName,(char * const*)arguments);
 		printf("Status code %d\n",statusCode);
 		exit(statusCode);
 	}
-	printf("waiting for %s\n", commandName);
+	// printf("waiting for %s\n", commandName);
 	possiblyCloseFile(inputfd);
 	possiblyCloseFile(outputfd);
 	if(waitForChild){
@@ -87,94 +92,156 @@ void forkExecute(int inputfd, int outputfd, char* commandName, char** arguments,
 
 
 
+void createTokenList(const char* readbuf, List* tokenList){
+	listInit(tokenList,sizeof(char)*100);
+	const char* ptr = readbuf;
+	int length = strlen(readbuf);
+	char buffer[100];
+	while(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
+		ptr = getNextToken(ptr,buffer, length + readbuf);
+		listAppend(tokenList,buffer);
+	}
+}
+
+
+void printList(List* tokenList){
+	struct listnode* node = listFront(tokenList);
+	printf("List size is %d\n",listSize(tokenList));
+	for(int i=0;i<listSize(tokenList) && node; i++){
+		printf("Node %d: %s\n",i,(char*)getDataPointer(node));
+		node = nextNode(node);
+	}
+}
+
+
+void replaceAliasesInList(List* tokenList){
+	List result;
+	listInit(&result,sizeof(char)*50);
+	const char* alias;
+	for(struct listnode* i = listFront(tokenList); i != NULL; i = nextNode(i)){
+		if(alias = findAlias(getDataPointer(i))){
+			printf("found %s\n",alias);
+			// exit(1);
+			List tempList;
+			listInit(&tempList,sizeof(char)*50);
+			createTokenList(alias,&tempList);
+			replaceAliasesInList(&tempList);
+			listCat(&result,&tempList,&result);
+			destructList(&tempList);
+		}
+		else listAppend(&result,getDataPointer(i));
+	}
+	listCopy(tokenList,&result);
+	destructList(&result);
+}
+
+
+
 void interpretInstruction(char* readbuf){
 	int length = strlen(readbuf);
-	char commandName[100];
-	char* arguments[100]={};
+	const char* commandName;
+	const char* arguments[100]={};
 	int argumentCounter = 1;
 	int IOfd[2] = {0,1};
-	char* ptr = getNextToken(readbuf,commandName,length+readbuf);
+
+	List tokenList;
+	listInit(&tokenList,sizeof(char)*50);
+	createTokenList(readbuf,&tokenList);
+	printList(&tokenList);
+	replaceAliasesInList(&tokenList);
+	printList(&tokenList);
+	struct listnode* ptr = listFront(&tokenList);
+	commandName = getDataPointer(ptr);
+	if(!commandName){destructList(&tokenList);return;}
+
 	if(!strcmp(commandName,"cd")){
-		ptr = getNextToken(ptr,commandName,length+readbuf);
-		chdir(commandName);
-		if(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
+		char* dir = getDataPointer(ptr = nextNode(ptr));
+		if(!dir)chdir("");
+		else chdir(dir);
+		if(nextNode(ptr)){
 			printf("cd: too many arguments");
 		}
-		return;
+		destructList(&tokenList);return;
+	}
+	else if(!strcmp(commandName,"createalias")){
+		char alias[100];
+		const char* inst = getNextToken(getNextToken(readbuf,alias,readbuf + strlen(readbuf)),alias, readbuf + strlen(readbuf));
+		createAlias((const char*)alias, inst);
+		destructList(&tokenList);return;
+	}
+	else if(!strcmp(commandName,"destroyalias")){
+		char alias[100];
+		printf("byebye\n");
+		getNextToken(getNextToken(readbuf,alias,readbuf + strlen(readbuf)),alias, readbuf + strlen(readbuf));
+		removeAlias(alias);
+		destructList(&tokenList);return;
 	}
 
 
-	printf("Command name is %s\n",commandName);
-	arguments[0] = malloc(sizeof(char)*(strlen(commandName)+1));
-	strcpy(arguments[0],commandName);
-
-
-	char buffer[100]= {};
-	while(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
-		ptr = getNextToken(ptr,buffer,length+readbuf);
-		printf("buffer is %s\n", buffer);
-		if(!strcmp(buffer,"<")){
-			if(skipWhiteSpaces(ptr,length + readbuf) == length + readbuf){
+	arguments[0] = commandName;
+	const char* currentToken = getDataPointer(ptr = nextNode(ptr));
+	while(currentToken){
+		if(!strcmp(currentToken,"<")){
+			if(!nextNode(ptr)){
 				printf("Expected input file after \'<\'\n");
-				return;
+				destructList(&tokenList);return;
 			}
-			ptr = getNextToken(ptr,buffer,length+readbuf);
+			currentToken = getDataPointer(ptr = nextNode(ptr));
 			possiblyCloseFile(IOfd[0]);
-			IOfd[0] = open(buffer,O_RDONLY);
+			IOfd[0] = open(currentToken,O_RDONLY);
 			if(IOfd[0]==-1){
-				printf("Error in opening file \"%s\"\n",buffer);
-				return;
+				printf("Error in opening file \"%s\"\n",currentToken);
+				destructList(&tokenList);return;
 			}
 
 		}
-		else if(!strcmp(buffer,">")){
-			if(skipWhiteSpaces(ptr,length + readbuf) == length + readbuf){
+		else if(!strcmp(currentToken,">")){
+			if(!nextNode(ptr)){
 				printf("Expected output file after \'>\'\n");
-				return;
+				destructList(&tokenList);return;
 			}
-			ptr = getNextToken(ptr,buffer,length+readbuf);
+			currentToken = getDataPointer(ptr = nextNode(ptr));
 			possiblyCloseFile(IOfd[1]);
-			IOfd[1] = open(buffer,O_RDWR|O_CREAT);
+			IOfd[1] = open(currentToken,O_RDWR|O_CREAT);
 			if(IOfd[1]==-1){
-				printf("Error in opening file \"%s\"\n",buffer);
-				return;
+				printf("Error in opening file \"%s\"\n",currentToken);
+				destructList(&tokenList);return;
 			}
 			printf("File opened successfully\n");
 		}
-		else if(!strcmp(buffer,"|")){
-			if(skipWhiteSpaces(ptr,length + readbuf) == length + readbuf){
+		else if(!strcmp(currentToken,"|")){
+			if(!nextNode(ptr)){
 				printf("Expected instruction after pipe \'|\'\n");
-				return;
+				destructList(&tokenList);return;
 			}	
 			int p[2];
 			pipe(p);
-			if(IOfd[1] == 1){printf("here we are!\n"); forkExecute(IOfd[0],p[1],commandName,arguments,0);}	//If the stdout is 1, redirect to the following instruction
+			if(IOfd[1] == 1){forkExecute(IOfd[0],p[1],commandName,arguments,0);}	//If the stdout is 1, redirect to the following instruction
 			else forkExecute(IOfd[0],IOfd[1],commandName,arguments,0);
 			possiblyCloseFile(p[1]);
 			IOfd[0] = p[0];
 			IOfd[1] = 1;
 			for(int i=0;i<argumentCounter;i++){
-				free(arguments[i]);
 				arguments[i] = NULL;
 			}
 			argumentCounter = 1;
-			ptr = getNextToken(ptr,commandName,length+readbuf);
-			arguments[0] = malloc(sizeof(char)*(strlen(commandName)+1));
-			strcpy(arguments[0],commandName);
+			commandName = getDataPointer(ptr = nextNode(ptr));
+			arguments[0] = commandName;
 		}
-		else if(!strcmp(buffer,"&")){
-			if(skipWhiteSpaces(ptr,length + readbuf) == length + readbuf){
+		else if(!strcmp(currentToken,"&")){
+			if(!nextNode(ptr)){
 				printf("Expected instruction after \'&\'\n");
-				return;
+				destructList(&tokenList);return;
 			}
 		}
 		else{
-			arguments[argumentCounter] = malloc(sizeof(char)*(strlen(buffer)+1));
-			strcpy(arguments[argumentCounter++],buffer);
+			arguments[argumentCounter++] = currentToken;
 		}
+		currentToken = getDataPointer(ptr = nextNode(ptr));
 	}
 	printf("Exectuting %s\n",commandName);
 	forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);
+	destructList(&tokenList);
 }
 
 
@@ -183,35 +250,23 @@ void interpretInstruction(char* readbuf){
 
 int main(){
 
+	aliasInit();
 
-	// char* argument_list[] = {"ls", "-l", NULL};
 
-	// if (fork() == 0) {
-    //     // Newly spawned child Process. This will be taken over by "ls -l"
-    //     int status_code = execvp("ls", argument_list);
-
-    //     printf("ls -l has taken control of this child process. This won't execute unless it terminates abnormally!\n");
-
-    //     if (status_code == -1) {
-    //         printf("Terminated Incorrectly\n");
-    //         return 1;
-    //     }
-    // }
-    // else {
-    //     // Old Parent process. The C program will come here
-    //     printf("This line will be printed\n");
-    // }
-    // char buffer[]= "ls"; 
-	// interpretInstruction(buffer);
-
-	char buffer3[] = "cat test.txt test.txt test.txt | sort";
+	char buffer3[] = "createalias haha echo \"This is my favourite part\"";
 	interpretInstruction(buffer3);
 
+    char buffer[]= "haha"; 
+	interpretInstruction(buffer);
 
-	// char buffer2[] = "cd mydir"
+	char buffer2[] = "createalias haha2 haha > myfile.txt";
+	interpretInstruction(buffer2);
+
+	interpretInstruction("haha2");
+
     // printf("%d\n", isSpecialCharacter('>'));
 	// execvp("echo", buffer);
-
+	destructAlias();
 	return 0;
 }
 
