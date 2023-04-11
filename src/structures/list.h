@@ -28,6 +28,7 @@ void listCat(List* list1, List* list2, List* result);
 void listCopy(List* clone, List* original);
 void* getDataPointer(struct listnode* node);
 int listSize(List* list);
+void visitList(List* list, void (*visit)(void*));
 void destructList(List* list);
 
 

@@ -148,16 +148,24 @@ void listCat(List* list1, List* list2, List* result){
 
 
 void destructList(List* list){
-	struct listnode* ptr = listFront(list);
-	while(ptr != NULL){
-		free(ptr->data);
-		struct listnode* temp = ptr;
-		ptr = ptr->next;
+	struct listnode* node = listFront(list);
+	while(node != NULL){
+		free(node->data);
+		struct listnode* temp = node;
+		node = node->next;
 		free(temp);
 	}
 	listInit(list,list->sizeOfItem);
 }
 
+
+void visitList(List* list, void (*visit)(void*)){
+	struct listnode* node = listFront(list);
+	for(int i=0;i<listSize(list) && node; i++){
+		visit(getDataPointer(node));
+		node = nextNode(node);
+	}
+}
 
 
 // int main(){

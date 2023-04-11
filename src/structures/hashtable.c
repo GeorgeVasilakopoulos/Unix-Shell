@@ -15,7 +15,7 @@ void hashInit(Hashtable* table, int sizeOfItem, int (*hashFunction)(void*)){
 void hashInsert(Hashtable* table, void* data){
 	table->itemsCount++;
 	int bucketID = table->hashFunction(data) % BUCKETNUMBER;
-	printf("Inserting in bucket %d\n",bucketID);
+	// printf("Inserting in bucket %d\n",bucketID);
 	struct tableEntry* entry = malloc(sizeof(struct tableEntry));
 	entry->next = NULL;
 	entry->data = malloc(table->sizeOfItem);
@@ -81,56 +81,6 @@ void hashDestruct(Hashtable* table){
 	}
 
 }
-
-
-
-// struct mytup{
-// 	char alias[100];
-// 	char inst[100];
-// };
-
-// int hash(void* data){
-// 	struct mytup* ptr = (struct mytup*)data;
-// 	int sum=0;
-// 	for(int i=0;i<strlen(ptr->alias);i++){
-// 		// printf(" %c ",ptr->alias[i]);
-// 		sum+=ptr->alias[i];
-// 	}
-// 	return sum;
-// }
-
-// int compare(void* data1, void* data2){
-// 	struct mytup* ptr1 = (struct mytup*)data1;
-// 	struct mytup* ptr2 = (struct mytup*)data2;
-// 	if(strcmp(ptr1->alias,ptr2->alias)==0)return 1;
-// 	return 0;
-// }
-
-
-// int main(){
-
-// 	Hashtable t;
-// 	hashInit(&t,sizeof(struct mytup),&hash);
-// 	struct mytup n;
-// 	strcpy(n.alias,"bla");
-// 	strcpy(n.inst,"bla");
-// 	hashInsert(&t,&n);
-// 	strcpy(n.alias,"hahaha");
-// 	strcpy(n.inst,"port");
-// 	hashInsert(&t,&n);
-// 	char buf[100];
-// 	strcpy(n.alias,"hahaha");
-// 	printf("%s\n", n.alias);
-// 	struct mytup* h = hashFind(&t,&n,&compare);
-// 	if(h==NULL)printf("Returned NULL\n");
-// 	printf("%s\n",h->inst);
-
-// 	return 0;
-// }
-
-
-
-
 
 
 
