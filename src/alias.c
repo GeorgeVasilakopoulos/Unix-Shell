@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
+#include "alias.h"
 
 static Hashtable aliasTable;
 
@@ -37,6 +37,7 @@ void aliasInit(){
 
 
 void createAlias(const char* alias, const char* instruction){
+	removeAlias(alias);
 	aliasMapping data;
 	strcpy(data.alias,alias);
 	strcpy(data.mappedString,instruction);
@@ -44,7 +45,7 @@ void createAlias(const char* alias, const char* instruction){
 }
 
 
-const char* findAlias(char* alias){
+const char* findAlias(const char* alias){
 	if(!alias)return NULL;
 	aliasMapping data;
 	strcpy(data.alias,alias);
@@ -55,7 +56,7 @@ const char* findAlias(char* alias){
 }
 
 
-void removeAlias(char* alias){
+void removeAlias(const char* alias){
 	aliasMapping data;
 	strcpy(data.alias,alias);
 	hashRemove(&aliasTable,&data,&compare);

@@ -10,6 +10,13 @@
 #include "alias.h"
 #include "lexer.h"
 
+#define MAXHISTORY 1
+
+List instructionHistory;
+
+void printtoken(void* data){
+	printf("Token is %s\n", (char*)data);
+}
 
 void possiblyCloseFile(int filedes){
 	if(filedes != 1 && filedes != 0)close(filedes);
@@ -34,14 +41,32 @@ void forkExecute(int inputfd, int outputfd, const char* commandName, const char*
 }
 
 
+void addToHistory(const char* inst){
+	printf("Adding %s to histor\n",inst);
+	char* copyOfInst = malloc(sizeof(char)*(strlen(inst)+1));
+	strcpy(copyOfInst,inst);
+	if(listSize(&instructionHistory)>MAXHISTORY){
+		free(*(char**)getDataPointer(listEnd(&instructionHistory)));
+		listRemove(&instructionHistory,listEnd(&instructionHistory));
+	}
+	listPrepend(&instructionHistory,&copyOfInst);
+}
+
+
+static void freePointerFromAddress(void** p){free(*p);}
+
+void clearHistory(){
+	visitList(&instructionHistory,(void (*)(void*))&freePointerFromAddress);
+	destructList(&instructionHistory);
+}
+
+
 void replaceAliasesInList(List* tokenList){
 	List result;
 	listInit(&result,sizeof(char)*50);
 	const char* alias;
 	for(struct listnode* i = listFront(tokenList); i != NULL; i = nextNode(i)){
 		if(alias = findAlias(getDataPointer(i))){
-			// printf("found %s\n",alias);
-			// exit(1);
 			List tempList;
 			listInit(&tempList,sizeof(char)*50);
 			createTokenList(alias,&tempList);
@@ -56,13 +81,9 @@ void replaceAliasesInList(List* tokenList){
 }
 
 
-void printtoken(void* data){
-	printf("Token is %s\n", (char*)data);
-}
 
 
-
-void interpretInstruction(char* readbuf){
+int interpretInstruction(const char* readbuf){
 	int length = strlen(readbuf);
 	const char* commandName;
 	const char* arguments[100]={};
@@ -71,36 +92,69 @@ void interpretInstruction(char* readbuf){
 	List tokenList;
 	listInit(&tokenList,sizeof(char)*50);
 	createTokenList(readbuf,&tokenList);
-	replaceAliasesInList(&tokenList);
 	struct listnode* ptr = listFront(&tokenList);
 	commandName = getDataPointer(ptr);
-	if(!commandName){destructList(&tokenList);return;}
+	if(!commandName){destructList(&tokenList);return 0;}
 
-	if(!strcmp(commandName,"cd")){
-		char* dir = getDataPointer(ptr = nextNode(ptr));
-		if(!dir)chdir("");
-		else chdir(dir);
-		if(nextNode(ptr)){
-			printf("cd: too many arguments");
-		}
-		destructList(&tokenList);return;
-	}
-	else if(!strcmp(commandName,"createalias")){
-		char alias[100];
-		const char* inst = getNextToken(getNextToken(readbuf,alias,readbuf + strlen(readbuf)),alias, readbuf + strlen(readbuf));
-		createAlias((const char*)alias, inst);
-		destructList(&tokenList);return;
-	}
-	else if(!strcmp(commandName,"destroyalias")){
+	if(!strcmp(commandName,"destroyalias")){
 		char alias[100];
 		getNextToken(getNextToken(readbuf,alias,readbuf + strlen(readbuf)),alias, readbuf + strlen(readbuf));
 		removeAlias(alias);
-		destructList(&tokenList);return;
+		destructList(&tokenList);addToHistory(readbuf);return 0;
 	}
-	else if(!strcmp(commandName,"exit")){
+	if(!strcmp(commandName,"createalias")){
+		char alias[100];
+		const char* inst = getNextToken(getNextToken(readbuf,alias,readbuf + strlen(readbuf)),alias, readbuf + strlen(readbuf));
+		createAlias((const char*)alias, inst);
+		destructList(&tokenList);addToHistory(readbuf);return 0;
+	}
+	
+	replaceAliasesInList(&tokenList);
+	visitList(&tokenList,&printtoken);
+	ptr = listFront(&tokenList);
+	commandName = getDataPointer(ptr);
+	// printf("Command name is %s\n",commandName);
+	if(!commandName){destructList(&tokenList);return 0;}
+	if(!strcmp(commandName,"cd")){
+		char* dir = getDataPointer(ptr = nextNode(ptr));
+		if(nextNode(ptr)){
+			printf("cd: too many arguments");
+			destructList(&tokenList);return 0;
+		}
+		if(!dir)chdir("");
+		else chdir(dir);
+		destructList(&tokenList);addToHistory(readbuf);return 0;
+	}
+	if(!strcmp(commandName,"exit")){
 		destructList(&tokenList);
-		exit(0);
+		return 1;
 	}
+	if(!strcmp(commandName,"prev")){
+		char* index_ptr = getDataPointer(ptr = nextNode(ptr));
+		int index;
+		if(!index_ptr)index = 1;else index = atoi(index_ptr);
+		if(index<=0){
+			printf("prev: Expected positive number or newline after prev\n");
+			destructList(&tokenList);return 0;
+		}
+
+		char** inst = getDataPointer(getNodeWithIndex(&instructionHistory,index-1));
+		if(!inst){
+			printf("prev: Instruction could not be retrieved\n");
+			destructList(&tokenList);return 0;
+		}
+
+		destructList(&tokenList);
+		char answer='\0';
+		while(answer != 'y' && answer != 'n'){
+			printf("prev: \"%s\". y/n?\n",*inst);
+			getchar();answer = getchar();getchar();
+		}
+
+		if(answer == 'y')interpretInstruction(*inst);
+		return 0;
+	}
+
 
 	arguments[0] = commandName;
 	const char* currentToken = getDataPointer(ptr = nextNode(ptr));
@@ -108,35 +162,35 @@ void interpretInstruction(char* readbuf){
 		if(!strcmp(currentToken,"<")){
 			if(!nextNode(ptr)){
 				printf("Expected input file after \'<\'\n");
-				destructList(&tokenList);return;
+				destructList(&tokenList);return 0;
 			}
 			currentToken = getDataPointer(ptr = nextNode(ptr));
 			possiblyCloseFile(IOfd[0]);
-			IOfd[0] = open(currentToken,O_RDONLY);
+			IOfd[0] = open(currentToken,O_RDONLY|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
 			if(IOfd[0]==-1){
 				printf("Error in opening file \"%s\"\n",currentToken);
-				destructList(&tokenList);return;
+				destructList(&tokenList);return 0;
 			}
 
 		}
 		else if(!strcmp(currentToken,">")){
 			if(!nextNode(ptr)){
 				printf("Expected output file after \'>\'\n");
-				destructList(&tokenList);return;
+				destructList(&tokenList);return 0;
 			}
 			currentToken = getDataPointer(ptr = nextNode(ptr));
 			possiblyCloseFile(IOfd[1]);
-			IOfd[1] = open(currentToken,O_RDWR|O_CREAT);
+			IOfd[1] = open(currentToken,O_WRONLY|O_CREAT|O_TRUNC,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
 			if(IOfd[1]==-1){
 				printf("Error in opening file \"%s\"\n",currentToken);
-				destructList(&tokenList);return;
+				destructList(&tokenList);return 0;
 			}
 			// printf("File opened successfully\n");
 		}
 		else if(!strcmp(currentToken,"|")){
 			if(!nextNode(ptr)){
 				printf("Expected instruction after pipe \'|\'\n");
-				destructList(&tokenList);return;
+				destructList(&tokenList);return 0;
 			}	
 			int p[2];
 			pipe(p);
@@ -152,12 +206,50 @@ void interpretInstruction(char* readbuf){
 			commandName = getDataPointer(ptr = nextNode(ptr));
 			arguments[0] = commandName;
 		}
+		else if(!strcmp(currentToken,";")){
+			if(!nextNode(ptr)){
+				printf("Expected instruction after \';\'\n");
+				destructList(&tokenList);return 0;
+			}
+			forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);
+			for(int i=0;i<argumentCounter;i++){
+				arguments[i] = NULL;
+			}
+			IOfd[0] = 0;
+			IOfd[1] = 1;
+			argumentCounter = 1;
+			commandName = getDataPointer(ptr = nextNode(ptr));
+			arguments[0] = commandName;
+		}
 		else if(!strcmp(currentToken,"&")){
 			if(!nextNode(ptr)){
 				printf("Expected instruction after \'&\'\n");
-				destructList(&tokenList);return;
+				destructList(&tokenList);return 0;
 			}
+			forkExecute(IOfd[0],IOfd[1],commandName,arguments,0);
+			for(int i=0;i<argumentCounter;i++){
+				arguments[i] = NULL;
+			}
+			IOfd[0] = 0;
+			IOfd[1] = 1;
+			argumentCounter = 1;
+			commandName = getDataPointer(ptr = nextNode(ptr));
+			arguments[0] = commandName;
 		}
+		else if(!strcmp(currentToken,">>")){
+			if(!nextNode(ptr)){
+				printf("Expected output file after \'>>\'\n");
+				destructList(&tokenList);return 0;
+			}
+			currentToken = getDataPointer(ptr = nextNode(ptr));
+			possiblyCloseFile(IOfd[1]);
+			IOfd[1] = open(currentToken,O_WRONLY|O_CREAT|O_APPEND,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+			if(IOfd[1]==-1){
+				printf("Error in opening file \"%s\"\n",currentToken);
+				destructList(&tokenList);return 0;
+			}
+			// printf("File opened successfully\n");
+		}	
 		else{
 			arguments[argumentCounter++] = currentToken;
 		}
@@ -166,6 +258,8 @@ void interpretInstruction(char* readbuf){
 	printf("Exectuting %s\n",commandName);
 	forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);
 	destructList(&tokenList);
+	addToHistory(readbuf);
+	return 0;
 }
 
 

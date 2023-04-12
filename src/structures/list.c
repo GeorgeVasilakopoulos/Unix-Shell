@@ -167,6 +167,12 @@ void visitList(List* list, void (*visit)(void*)){
 	}
 }
 
+struct listnode* getNodeWithIndex(List* list, unsigned int i){
+	if(i >= list->itemsCount)return NULL;
+	struct listnode* ptr = listFront(list);
+	while(i--)ptr = ptr->next;
+	return ptr;
+}
 
 // int main(){
 // 	List mylist;

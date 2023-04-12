@@ -32,7 +32,7 @@ void hashInsert(Hashtable* table, void* data){
 const void* hashFind(Hashtable* table, void* data, int (*compare)(void*, void*)){
 	int bucketID = table->hashFunction(data) % BUCKETNUMBER;
 	struct tableEntry* entry = table->bucket[bucketID];
-	// printf("Lookming in bucket %d, %d\n",bucketID, entry==NULL);
+	printf("Lookming in bucket %d, %d\n",bucketID, entry==NULL);
 	while(entry!=NULL){
 		if(compare(data,entry->data))return entry->data;
 		entry = entry->next;
