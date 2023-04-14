@@ -1,7 +1,7 @@
 #include "structures/hashtable.h"
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+// #include <stdio.h>
 #include "alias.h"
 
 static Hashtable aliasTable;

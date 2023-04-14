@@ -36,13 +36,13 @@ void forkExecute(int inputfd, int outputfd, const char* commandName, const char*
 	possiblyCloseFile(outputfd);
 	if(waitForChild){
 		while(wait(NULL) != pid);
-		printf("Exited!!\n");
+		// printf("Exited!!\n");
 	}
 }
 
 
 void addToHistory(const char* inst){
-	printf("Adding %s to histor\n",inst);
+	// printf("Adding %s to histor\n",inst);
 	char* copyOfInst = malloc(sizeof(char)*(strlen(inst)+1));
 	strcpy(copyOfInst,inst);
 	if(listSize(&instructionHistory)>MAXHISTORY){
@@ -110,7 +110,7 @@ int interpretInstruction(const char* readbuf){
 	}
 	
 	replaceAliasesInList(&tokenList);
-	visitList(&tokenList,&printtoken);
+	// visitList(&tokenList,&printtoken);
 	ptr = listFront(&tokenList);
 	commandName = getDataPointer(ptr);
 	// printf("Command name is %s\n",commandName);
@@ -146,12 +146,19 @@ int interpretInstruction(const char* readbuf){
 
 		destructList(&tokenList);
 		char answer='\0';
+		// write(0,*inst,strlen(*inst)-1);
+		// char buff[100];
+		// scanf("%s\n",buff);
+		// printf("%s\n",buff);
 		while(answer != 'y' && answer != 'n'){
 			printf("prev: \"%s\". y/n?\n",*inst);
 			getchar();answer = getchar();getchar();
 		}
 
 		if(answer == 'y')interpretInstruction(*inst);
+		
+
+
 		return 0;
 	}
 
@@ -255,7 +262,7 @@ int interpretInstruction(const char* readbuf){
 		}
 		currentToken = getDataPointer(ptr = nextNode(ptr));
 	}
-	printf("Exectuting %s\n",commandName);
+	// printf("Exectuting %s\n",commandName);
 	forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);
 	destructList(&tokenList);
 	addToHistory(readbuf);
