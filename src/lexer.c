@@ -26,6 +26,15 @@ int isSpecialCharacter(const char c){
 	}
 }
 
+int isWildCharacter(const char c){
+	switch(c){
+	case '*':
+	case '?':
+		return 1;
+	default:
+		return 0;
+	}
+}
 
 
 const char* getNextToken(const char* readbuf, char* writebuf, const char* readbufSize){
@@ -45,8 +54,8 @@ const char* getNextToken(const char* readbuf, char* writebuf, const char* readbu
 		}
 		if(readbuf != readbufSize)readbuf++;
 	}
-	else if(isAlpharethmetic(*readbuf)){
-		while(readbuf != readbufSize && isAlpharethmetic(*readbuf)){
+	else if(isAlpharethmetic(*readbuf)||isWildCharacter(*readbuf)){
+		while(readbuf != readbufSize && (isAlpharethmetic(*readbuf)||isWildCharacter(*readbuf))){
 			*writebuf++ = *readbuf++;
 		}		
 	}
@@ -71,7 +80,7 @@ void createTokenList(const char* readbuf, List* tokenList){
 	char buffer[100];
 	while(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
 		ptr = getNextToken(ptr,buffer, length + readbuf);
-		printf("In cretetoken %s %d\n", buffer, buffer[0]);
+		// printf("In cretetoken %s %d\n", buffer, buffer[0]);
 		listAppend(tokenList,buffer);
 	}
 }

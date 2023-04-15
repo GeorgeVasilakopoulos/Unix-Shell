@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "structures/list.h"
 #include "alias.h"
+#include "interpreter.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -8,9 +9,6 @@ extern List instructionHistory;
 
 
 
-
-int interpretInstruction(char* readbuf);
-void clearHistory();
 
 int main(){
 

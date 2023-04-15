@@ -1,13 +1,12 @@
 #include "structures/list.h"
+#include "wildchar.h"
 #include "lexer.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <regex.h>
+#include "interpreter.h"
 
-void printtoken(void* data);
-void possiblyCloseFile(int filedes);
-void forkExecute(int inputfd, int outputfd, const char* commandName, const char* arguments[], int waitForChild);
 
 int isWildString(const char* readbuf){
 	while(*readbuf){
@@ -44,9 +43,8 @@ void replaceWildTokens(List* tokenList){
 		if(isWildString(pattern)){
 			replaceCharInString(pattern,'*',"[a-zA-Z0-9_.+-]*");
 			replaceCharInString(pattern,'?',"[a-zA-Z0-9_.+-]");
-			replaceCharInString(pattern,'.',"\.");
+			replaceCharInString(pattern,'.',"\\.");
 			strcat(pattern,"$");
-			// printf("pattern %s\n",pattern);
 
 			regex_t regex;
 			int reg = regcomp(&regex,pattern,REG_EXTENDED);
@@ -67,11 +65,10 @@ void replaceWildTokens(List* tokenList){
 				did_ls=1;
 			}
 
-			//For every file/directory in dirList, see if it matches the pattern
+			//For every file/directory in dirList, check if it matches the pattern
 			for(struct listnode* j=listFront(&dirList);j!=NULL;j = nextNode(j)){	
 				int reg = regexec(&regex, getDataPointer(j), 0, NULL, 0);
 				if(!reg){
-					printf("Match! %s\n",(char*)getDataPointer(j));
 					listAddBefore(tokenList,i,getDataPointer(j));
 				}
 			}
@@ -97,33 +94,33 @@ void replaceWildTokens(List* tokenList){
 
 
 
-int main(){
-	List mylist;
-	listInit(&mylist,sizeof(char)*50);
-	createTokenList("*.t?t",&mylist);
-	printf("hey");
-	visitList(&mylist,&printtoken);
-	replaceWildTokens(&mylist);
-	visitList(&mylist,&printtoken);
-	// char buffer[100];
-	// strcpy(buffer,"*.txt");
-	// replaceCharInString(buffer,'*',"^[a-zA-Z0-9_.+-]*");
-	// printf("%s\n",buffer);
+// int main(){
+// 	List mylist;
+// 	listInit(&mylist,sizeof(char)*50);
+// 	createTokenList("*.t?t",&mylist);
+// 	printf("hey");
+// 	// visitList(&mylist,&printtoken);
+// 	replaceWildTokens(&mylist);
+// 	visitList(&mylist,&printtoken);
+// 	// char buffer[100];
+// 	// strcpy(buffer,"*.txt");
+// 	// replaceCharInString(buffer,'*',"^[a-zA-Z0-9_.+-]*");
+// 	// printf("%s\n",buffer);
 
-	// regex_t regex;
-	// int reg = regcomp(&regex,"^[a-zA-Z0-9_.+-]*\.txt$",REG_EXTENDED);	
-	// if(!reg){
-	// 	reg = regexec(&regex, "haha.txt", 0, NULL, 0);
-	// }
+// 	// regex_t regex;
+// 	// int reg = regcomp(&regex,"^[a-zA-Z0-9_.+-]*\.txt$",REG_EXTENDED);	
+// 	// if(!reg){
+// 	// 	reg = regexec(&regex, "haha.txt", 0, NULL, 0);
+// 	// }
 
-	// if (reg == 0) {
-    //     printf("Match!\n");
-    // } 
-   	// else if (reg == REG_NOMATCH) {
-    //     printf("No match.\n");
-    // }
+// 	// if (reg == 0) {
+//     //     printf("Match!\n");
+//     // } 
+//    	// else if (reg == REG_NOMATCH) {
+//     //     printf("No match.\n");
+//     // }
 
 
-	return 0;
+// 	return 0;
 
-}
+// }
