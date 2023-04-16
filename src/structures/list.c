@@ -1,8 +1,9 @@
-// #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "list.h"
  
+//Implementation of a (doubly) connected list structure
+
 
 void listInit(List* list, unsigned int sizeOfItem){
 	list->itemsCount = 0;
@@ -11,6 +12,8 @@ void listInit(List* list, unsigned int sizeOfItem){
 	list->sizeOfItem = sizeOfItem; 
 }
 
+
+//Add item at start of list
 void listPrepend(List* list, void* data){
 	list->itemsCount++;
 	struct listnode* node = malloc(sizeof(struct listnode));
@@ -23,7 +26,7 @@ void listPrepend(List* list, void* data){
 	list->head = node;
 }
 
-
+//Add item at the end of list
 void listAppend(List* list, void* data){
 	list->itemsCount++;
 	struct listnode* node = malloc(sizeof(struct listnode));
@@ -126,7 +129,7 @@ void listCopy(List* clone, List* original){
 	}
 }
 
-
+//Concatenation of two lists.
 void listCat(List* list1, List* list2, List* result){
 	if(result == list1){
 		for(struct listnode* i = listFront(list2);i != NULL ; i = nextNode(i)){
@@ -158,7 +161,7 @@ void destructList(List* list){
 	listInit(list,list->sizeOfItem);
 }
 
-
+//Generic visit function
 void visitList(List* list, void (*visit)(void*)){
 	struct listnode* node = listFront(list);
 	for(int i=0;i<listSize(list) && node; i++){
@@ -173,30 +176,3 @@ struct listnode* getNodeWithIndex(List* list, unsigned int i){
 	while(i--)ptr = ptr->next;
 	return ptr;
 }
-
-// int main(){
-// 	List mylist;
-// 	listInit(&mylist,sizeof(int));
-// 	for(int i = 0;i<10;i++){
-// 		listPrepend(&mylist,&i);
-// 	}
-
-// 	struct listnode* node = listFront(&mylist);
-
-// 	printf("%d\n",*(int*)node->data);
-// 	node = nextNode(node);
-	
-// 	printf("%d\n",*(int*)node->data);
-// 	node = nextNode(node);
-	
-
-// 	printf("%d\n",*(int*)node->data);
-// 	node = nextNode(node);
-
-
-
-// 	return 0;
-// }
-
-
-

@@ -25,39 +25,40 @@ void possiblyCloseFile(int filedes){
 	if(filedes != 1 && filedes != 0)close(filedes);
 }
 
+
+//Fork the current process and execute the given command. Set waitForChild = 0 for parallel (backrgound execution)
 void forkExecute(int inputfd, int outputfd, const char* commandName, const char* arguments[], int waitForChild){
 	pid_t pid = fork();
-	if(!pid){
+	if(!pid){			//Child process
 		dup2(inputfd,0);
 		dup2(outputfd,1);
 		int statusCode = execvp(commandName,(char * const*)arguments);
-		printf("Status code %d\n",statusCode);
+		printf("%s: Status code %d\n",commandName,statusCode);	//If error occured.
 		exit(statusCode);
 	}
-	// printf("waiting for %s\n", commandName);
 	possiblyCloseFile(inputfd);
 	possiblyCloseFile(outputfd);
 	if(waitForChild){
-		while(wait(NULL) != pid);
-		// printf("Exited!!\n");
+		while(wait(NULL) != pid); //Wait for child process to terminate.
 	}
 }
 
 
+
 void addToHistory(const char* inst){
-	// printf("Adding %s to histor\n",inst);
 	char* copyOfInst = malloc(sizeof(char)*(strlen(inst)+1));
 	strcpy(copyOfInst,inst);
-	if(listSize(&instructionHistory)>MAXHISTORY){
+	if(listSize(&instructionHistory)>MAXHISTORY){	//Delete oldest instruction.
 		free(*(char**)getDataPointer(listEnd(&instructionHistory)));
 		listRemove(&instructionHistory,listEnd(&instructionHistory));
 	}
-	listPrepend(&instructionHistory,&copyOfInst);
+	listPrepend(&instructionHistory,&copyOfInst);	//Add instruction to the front.
 }
 
 
 static void freePointerFromAddress(void** p){free(*p);}
 
+//Delete all instructions in history.
 void clearHistory(){
 	visitList(&instructionHistory,(void (*)(void*))&freePointerFromAddress);
 	destructList(&instructionHistory);
@@ -66,7 +67,8 @@ void clearHistory(){
 
 static int Execute_destroyalias(const char* readbuf){
 	char alias[100];
-	getNextToken(getNextToken(readbuf,alias,readbuf + strlen(readbuf)),alias, readbuf + strlen(readbuf));
+	char* ptr = getNextToken(readbuf,alias,readbuf + strlen(readbuf)); 	//Skip first word (destroyalias)
+	getNextToken(ptr,alias,readbuf + strlen(readbuf));					//Copy second word (alias)
 	removeAlias(alias);
 	return 0;
 }
@@ -74,13 +76,14 @@ static int Execute_destroyalias(const char* readbuf){
 
 static int Execute_createalias(const char* readbuf){
 	char alias[100];
-	const char* inst = getNextToken(getNextToken(readbuf,alias,readbuf + strlen(readbuf)),alias, readbuf + strlen(readbuf));
-	createAlias(alias, inst);
+	char* ptr = getNextToken(readbuf,alias,readbuf + strlen(readbuf));		//Skip first word (createalias)
+	const char* inst = getNextToken(ptr,alias,readbuf + strlen(readbuf));	//Copy second word (alias)
+	createAlias(alias, inst);												
 	return 0;
 }
 
 static int Execute_cd(const char* readbuf, struct listnode** ptr){
-	char* dir = getDataPointer(*ptr = nextNode(*ptr));
+	char* dir = getDataPointer(*ptr = nextNode(*ptr));	
 	if(nextNode(*ptr)){
 		printf("cd: too many arguments");
 		return 1;
@@ -93,7 +96,7 @@ static int Execute_cd(const char* readbuf, struct listnode** ptr){
 static int Execute_prev(struct listnode** ptr){
 	char* index_ptr = getDataPointer(*ptr = nextNode(*ptr));
 	int index;
-	if(!index_ptr)index = 1;else index = atoi(index_ptr);
+	if(!index_ptr)index = 1;else index = atoi(index_ptr); //If no number was given, execute the previous instruction
 	if(index<=0){
 		printf("prev: Expected positive number or newline after prev\n");
 		return 1;
@@ -107,7 +110,7 @@ static int Execute_prev(struct listnode** ptr){
 
 	char answer='\0';
 	while(answer != 'y' && answer != 'n'){
-		printf("prev: \"%s\". y/n?\n",*inst);
+		printf("prev: \"%s\". y/n?\n",*inst);	//Ask user whether to execute the instruction
 		getchar();answer = getchar();getchar();
 	}
 
@@ -122,8 +125,8 @@ static int Handle_inputRedirection(struct listnode** ptr, const char** currentTo
 		return 1;
 	}
 	*currentToken = getDataPointer(*ptr = nextNode(*ptr));
-	possiblyCloseFile(IOfd[0]);
-	IOfd[0] = open(*currentToken,O_RDONLY|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+	possiblyCloseFile(IOfd[0]); //Possibly close previous input file.
+	IOfd[0] = open(*currentToken,O_RDONLY|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);	//Open new file
 	if(IOfd[0]==-1){
 		printf("Error in opening file \"%s\"\n",*currentToken);
 		return 1;
@@ -138,8 +141,8 @@ static int Handle_outputRedirection(struct listnode** ptr, const char** currentT
 		return 1;
 	}
 	*currentToken = getDataPointer(*ptr = nextNode(*ptr));
-	possiblyCloseFile(IOfd[1]);
-	IOfd[1] = open(*currentToken,O_WRONLY|O_CREAT|O_TRUNC,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+	possiblyCloseFile(IOfd[1]); //Possibly close previous output file 
+	IOfd[1] = open(*currentToken,O_WRONLY|O_CREAT|O_TRUNC,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);	//Open new file
 	if(IOfd[1]==-1){
 		printf("Error in opening file \"%s\"\n",*currentToken);
 		return 1;
@@ -178,6 +181,8 @@ static int Handle_pipe(struct listnode**ptr, const char** commandName,  const ch
 	for(int i=0;i<*argumentCounter;i++){
 		arguments[i] = NULL;
 	}
+
+	//Fetch new command
 	*argumentCounter = 1;
 	*commandName = getDataPointer(*ptr = nextNode(*ptr));
 	arguments[0] = *commandName;
@@ -211,8 +216,10 @@ static int Handle_backgroundExecution(struct listnode** ptr, const char** comman
 	for(int i=0;i<*argumentCounter;i++){
 		arguments[i] = NULL;
 	}
-	IOfd[0] = 0;
-	IOfd[1] = 1;
+
+	//Fetch new instruction
+	IOfd[0] = 0;	//
+	IOfd[1] = 1;	//
 	*argumentCounter = 1;
 	*commandName = getDataPointer(*ptr = nextNode(*ptr));
 	arguments[0] = *commandName;
@@ -236,10 +243,11 @@ int interpretInstruction(const char* readbuf){
 	List tokenList;
 	listInit(&tokenList,sizeof(char)*50);
 	createTokenList(readbuf,&tokenList);
-	struct listnode* ptr = listFront(&tokenList);
+	struct listnode* ptr = listFront(&tokenList); //Get first token (corresponds to commandName)
 	commandName = getDataPointer(ptr);
-	if(!commandName){destructList(&tokenList);return 0;}
-
+	if(!commandName){							//If list is empty (readbuf contains no tokens)
+		EXIT(0);
+	}
 	if(!strcmp(commandName,"destroyalias")){
 		Execute_destroyalias(readbuf);
 		addToHistory(readbuf);
@@ -251,19 +259,21 @@ int interpretInstruction(const char* readbuf){
 		EXIT(0);
 	}
 	
-	replaceAliasesInList(&tokenList);
-	replaceWildTokens(&tokenList);
+	replaceAliasesInList(&tokenList);	///
+	replaceWildTokens(&tokenList);		///
 
 	ptr = listFront(&tokenList);
 	commandName = getDataPointer(ptr);
 
-	if(!commandName){destructList(&tokenList);return 0;}
+	if(!commandName){
+		EXIT(0);
+	}
 	if(!strcmp(commandName,"cd")){
 		if(!Execute_cd(readbuf,&ptr))
 			addToHistory(readbuf);
 		EXIT(0);
 	}
-	if(!strcmp(commandName,"exit")){
+	if(!strcmp(commandName,"exit")){	//Terminate execution of the shell
 		EXIT(1);
 	}
 	if(!strcmp(commandName,"prev")){
@@ -273,7 +283,7 @@ int interpretInstruction(const char* readbuf){
 
 
 	arguments[0] = commandName;
-	const char* currentToken = getDataPointer(ptr = nextNode(ptr));
+	const char* currentToken = getDataPointer(ptr = nextNode(ptr)); //Next token after instrution name
 	while(currentToken){
 		if(!strcmp(currentToken,"<")){
 			if(Handle_inputRedirection(&ptr,&currentToken,IOfd)){
@@ -306,12 +316,11 @@ int interpretInstruction(const char* readbuf){
 			}
 		}
 		else{
-			arguments[argumentCounter++] = currentToken;
+			arguments[argumentCounter++] = currentToken;	//Else, consider this token as argument
 		}
-		currentToken = getDataPointer(ptr = nextNode(ptr));
+		currentToken = getDataPointer(ptr = nextNode(ptr));	//Get next token
 	}
-	// printf("Exectuting %s\n",commandName);
-	forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);
+	forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);	//Execute
 	addToHistory(readbuf);
 	EXIT(0);
 }

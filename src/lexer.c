@@ -80,7 +80,6 @@ void createTokenList(const char* readbuf, List* tokenList){
 	char buffer[100];
 	while(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
 		ptr = getNextToken(ptr,buffer, length + readbuf);
-		// printf("In cretetoken %s %d\n", buffer, buffer[0]);
 		listAppend(tokenList,buffer);
 	}
 }

@@ -53,7 +53,7 @@ void hashRemove(Hashtable* table, void* data, int (*compare)(void*, void*)){
 		return;
 	}
 
-	// printf("Lookming in bucket %d, %d\n",bucketID, entry==NULL);
+
 	while(entry->next!=NULL){
 		if(compare(data,entry->data)){
 			free(entry->next->data);

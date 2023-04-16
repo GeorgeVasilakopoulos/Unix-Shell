@@ -13,8 +13,7 @@ extern List instructionHistory;
 int main(){
 
 	aliasInit();
-	char* myshell = "in-mysh-now>";
-	char buffer[100];
+	 
 
 	listInit(&instructionHistory,sizeof(char**));
 
