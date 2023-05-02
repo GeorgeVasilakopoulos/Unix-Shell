@@ -1,21 +1,21 @@
-#include "structures/hashtable.h"
-#include "structures/list.h"
 #include <stdlib.h>
 #include <string.h>
-// #include <stdio.h>
+#include "structures/hashtable.h"
+#include "structures/list.h"
 #include "alias.h"
 #include "lexer.h"
+#include "interface.h"
 
 static Hashtable aliasTable;
 
 
-//Alias and the corresponding string
+//Alias-String pair
 typedef struct aliasMap{
-	char alias[100];
-	char mappedString[100];
+	char alias[MAXBUFSIZE];
+	char mappedString[MAXBUFSIZE];
 }aliasMapping;
 
-//String hash function. Add ascii values. Result will be taken mod with n. of buckets.
+//String hash function. Sum up ascii values. Result will be taken mod with n. of buckets.
 static int hash(void* data){
 	int sum = 0;
 	for(int i=0; i < strlen(((aliasMapping*)data)->alias); i++){
@@ -61,12 +61,12 @@ const char* findAlias(const char* alias){
 
 void replaceAliasesInList(List* tokenList){
 	List result;
-	listInit(&result,sizeof(char)*50);
+	listInit(&result,sizeof(char)*MAXBUFSIZE);
 	const char* alias;
 	for(struct listnode* i = listFront(tokenList); i != NULL; i = nextNode(i)){
 		if(alias = findAlias(getDataPointer(i))){	//If the token is a registered alias
 			List tempList;
-			listInit(&tempList,sizeof(char)*50);	
+			listInit(&tempList,sizeof(char)*MAXBUFSIZE);	
 			createTokenList(alias,&tempList);		//Transform aliased instruction into token list
 			replaceAliasesInList(&tempList);		//Recursively replace aliases in list
 			listCat(&result,&tempList,&result);		//Concatenate results

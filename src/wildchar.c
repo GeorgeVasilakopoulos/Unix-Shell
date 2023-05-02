@@ -1,16 +1,19 @@
-#include "structures/list.h"
-#include "wildchar.h"
-#include "lexer.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <regex.h>
-#include "interpreter.h"
+#include "structures/list.h"
+#include "lexer.h"
+#include "interface.h"
+#include "wildchar.h"
+
 
 
 int isWildString(const char* readbuf){
+	if(isQuotedString(readbuf))return 0;
 	while(*readbuf){
-		if(*readbuf == '*'||*readbuf == '?') return 1;
+		if(isWildCharacter(*readbuf)) return 1;
+		if(isWhiteSpace(*readbuf)) return 0;
 		readbuf++;
 	}
 	return 0;
@@ -34,24 +37,28 @@ void replaceCharInString(char* string, char c, const char* subst){
 	}
 }
 
-void replaceWildTokens(List* tokenList){
+int replaceWildTokens(List* tokenList){
 	List dirList;	//List of files+directiories (produced by ls)
 	int did_ls=0;	
-	listInit(&dirList,sizeof(char)*50);
+	listInit(&dirList,sizeof(char)*MAXTOKENSIZE);
 	for (struct listnode* i = listFront(tokenList); i!=NULL;){ //Iterate tokenList
-		char pattern[100];
-		pattern[0] = '^';
-		strcpy(pattern+1,getDataPointer(i));	//Copy token string to 'pattern'
-		if(isWildString(pattern)){
-
+		if(isWildString(getDataPointer(i))){
+			char pattern[MAXBUFSIZE];
+			pattern[0] = '^';
+			strcpy(pattern+1,getDataPointer(i));	//Copy token string to 'pattern'
+			// printf("%s\n",pattern);
 			//'pattern' becomes a valid regex pattern
 			replaceCharInString(pattern,'*',"[a-zA-Z0-9_.+-]*");
 			replaceCharInString(pattern,'?',"[a-zA-Z0-9_.+-]");
 			replaceCharInString(pattern,'.',"\\.");
 			strcat(pattern,"$");
-
 			regex_t regex;
-			int reg = regcomp(&regex,pattern,REG_EXTENDED);
+			int code = regcomp(&regex,pattern,REG_EXTENDED);
+			if(code){
+				printf("wildchar: error in the comprehension of %s\n",(char*)getDataPointer(i));
+				return 1;
+			}
+
 			//error check
 
 
@@ -60,9 +67,9 @@ void replaceWildTokens(List* tokenList){
 				pipe(p);
 				const char* arg[2] = {"ls",NULL};
 				forkExecute(0,p[1],"ls",arg,1);
-				char buffer[1000000];
-				read(p[0],buffer,100000);
-				buffer[strlen(buffer)] = '\0';
+				char buffer[MAX_CHARACTERS_PER_LS]={};
+				read(p[0],buffer,MAX_CHARACTERS_PER_LS);
+				// printf("buffer is%s\n",buffer);
 				possiblyCloseFile(p[0]);
 				possiblyCloseFile(p[1]);
 				createTokenList(buffer,&dirList);
@@ -71,8 +78,8 @@ void replaceWildTokens(List* tokenList){
 
 			//For every file/directory in dirList, check if it matches the pattern
 			for(struct listnode* j=listFront(&dirList);j!=NULL;j = nextNode(j)){	
-				int reg = regexec(&regex, getDataPointer(j), 0, NULL, 0);
-				if(!reg){
+				int match_code = regexec(&regex, getDataPointer(j), 0, NULL, 0);
+				if(!match_code){
 					listAddBefore(tokenList,i,getDataPointer(j)); //Add the matched string right before the wild token.
 				}
 			}
@@ -85,6 +92,7 @@ void replaceWildTokens(List* tokenList){
 		i = nextNode(i);
 	}
 	destructList(&dirList);
+	return 0;
 }
 
 

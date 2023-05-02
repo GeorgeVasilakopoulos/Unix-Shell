@@ -3,71 +3,23 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include "structures/list.h"
 #include "alias.h"
 #include "lexer.h"
 #include "wildchar.h"
 #include "interpreter.h"
+#include "interface.h"
 
 
-#define MAXHISTORY 20
-
-List instructionHistory;
+extern List instructionHistory;
 
 void printtoken(void* data){
 	printf("Token is %s\n", (char*)data);
 }
 
-void possiblyCloseFile(int filedes){
-	if(filedes != 1 && filedes != 0)close(filedes);
-}
-
-
-//Fork the current process and execute the given command. Set waitForChild = 0 for parallel (backrgound execution)
-void forkExecute(int inputfd, int outputfd, const char* commandName, const char* arguments[], int waitForChild){
-	pid_t pid = fork();
-	if(!pid){			//Child process
-		dup2(inputfd,0);
-		dup2(outputfd,1);
-		int statusCode = execvp(commandName,(char * const*)arguments);
-		printf("%s: Status code %d\n",commandName,statusCode);	//If error occured.
-		exit(statusCode);
-	}
-	possiblyCloseFile(inputfd);
-	possiblyCloseFile(outputfd);
-	if(waitForChild){
-		while(wait(NULL) != pid); //Wait for child process to terminate.
-	}
-}
-
-
-
-void addToHistory(const char* inst){
-	char* copyOfInst = malloc(sizeof(char)*(strlen(inst)+1));
-	strcpy(copyOfInst,inst);
-	if(listSize(&instructionHistory)>MAXHISTORY){	//Delete oldest instruction.
-		free(*(char**)getDataPointer(listEnd(&instructionHistory)));
-		listRemove(&instructionHistory,listEnd(&instructionHistory));
-	}
-	listPrepend(&instructionHistory,&copyOfInst);	//Add instruction to the front.
-}
-
-
-static void freePointerFromAddress(void** p){free(*p);}
-
-//Delete all instructions in history.
-void clearHistory(){
-	visitList(&instructionHistory,(void (*)(void*))&freePointerFromAddress);
-	destructList(&instructionHistory);
-}
-
-
 static int Execute_destroyalias(const char* readbuf){
-	char alias[100];
-	char* ptr = getNextToken(readbuf,alias,readbuf + strlen(readbuf)); 	//Skip first word (destroyalias)
+	char alias[MAXTOKENSIZE];
+	const char* ptr = getNextToken(readbuf,alias,readbuf + strlen(readbuf)); 	//Skip first word (destroyalias)
 	getNextToken(ptr,alias,readbuf + strlen(readbuf));					//Copy second word (alias)
 	removeAlias(alias);
 	return 0;
@@ -75,9 +27,13 @@ static int Execute_destroyalias(const char* readbuf){
 
 
 static int Execute_createalias(const char* readbuf){
-	char alias[100];
-	char* ptr = getNextToken(readbuf,alias,readbuf + strlen(readbuf));		//Skip first word (createalias)
+	char alias[MAXTOKENSIZE];
+	const char* ptr = getNextToken(readbuf,alias,readbuf + strlen(readbuf));		//Skip first word (createalias)
 	const char* inst = getNextToken(ptr,alias,readbuf + strlen(readbuf));	//Copy second word (alias)
+	if(!isValidAlias(alias)){
+		printf("createalias: invalid alias name\n");
+		return 1;
+	}
 	createAlias(alias, inst);												
 	return 0;
 }
@@ -85,7 +41,7 @@ static int Execute_createalias(const char* readbuf){
 static int Execute_cd(const char* readbuf, struct listnode** ptr){
 	char* dir = getDataPointer(*ptr = nextNode(*ptr));	
 	if(nextNode(*ptr)){
-		printf("cd: too many arguments");
+		printf("cd: too many arguments\n");
 		return 1;
 	}
 	if(!dir)chdir("");
@@ -226,6 +182,27 @@ static int Handle_backgroundExecution(struct listnode** ptr, const char** comman
 	return 0;
 }
 
+void replaceEnvVariables(List *tokenList){
+	for(struct listnode* i=listFront(tokenList); i!=NULL;i = nextNode(i)){
+		char* token = getDataPointer(i);
+		if(*token == '$'){
+			strcpy(token,getenv(token+1));
+		}
+	}
+}
+
+//0 for OK, 1 for syntax error (missing closing " or ')
+int removeQuotations(List* tokenList){
+	for(struct listnode* i = listFront(tokenList); i!=NULL; i = nextNode(i)){
+		char* token = getDataPointer(i);
+		if(rmQuotesFromString(token))return 1;	
+	}
+	return 0;
+}
+
+
+
+
 int interpretInstruction(const char* readbuf){
 	
 	#define EXIT(exitCode)						\
@@ -237,12 +214,14 @@ int interpretInstruction(const char* readbuf){
 
 	int length = strlen(readbuf);
 	const char* commandName;
-	const char* arguments[100]={};
+	const char* arguments[MAXARGUMENTS]={};
 	int argumentCounter = 1;
 	int IOfd[2] = {0,1};
 	List tokenList;
 	listInit(&tokenList,sizeof(char)*50);
+	// printf("hey\n");
 	createTokenList(readbuf,&tokenList);
+
 	struct listnode* ptr = listFront(&tokenList); //Get first token (corresponds to commandName)
 	commandName = getDataPointer(ptr);
 	if(!commandName){							//If list is empty (readbuf contains no tokens)
@@ -260,7 +239,11 @@ int interpretInstruction(const char* readbuf){
 	}
 	
 	replaceAliasesInList(&tokenList);	///
+	// visitList(&tokenList,&printtoken);
 	replaceWildTokens(&tokenList);		///
+	replaceEnvVariables(&tokenList);
+	// visitList(&tokenList,&printtoken);
+	removeQuotations(&tokenList);
 
 	ptr = listFront(&tokenList);
 	commandName = getDataPointer(ptr);

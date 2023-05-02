@@ -3,9 +3,10 @@
 #include "list.h"
  
 //Implementation of a (doubly) connected list structure
+//Supports any type of data
 
 
-void listInit(List* list, unsigned int sizeOfItem){
+void listInit(List* list, size_t sizeOfItem){
 	list->itemsCount = 0;
 	list->head = NULL;
 	list->end = NULL;

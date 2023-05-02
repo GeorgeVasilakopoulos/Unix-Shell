@@ -3,17 +3,47 @@
 #include "structures/list.h"
 #include "lexer.h"
 
+int isWhiteSpace(char c){
+	switch(c){
+		case ' ':
+		case '\t':
+		case '\n':
+			return 1;
+		default:
+			return 0;
+	}
+}
+
 const char* skipWhiteSpaces(const char* readbuf, const char* readbufSize){
-	while(readbuf != readbufSize && (*readbuf == ' ' || *readbuf == '\t' || *readbuf == '\n'))
+	while(readbuf != readbufSize && isWhiteSpace(*readbuf))
 		readbuf++;
 	return readbuf;
 }
 
-int isAlpharethmetic(const char c){
-	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.')||(c=='-'));
+int isAlpharethmetic(char c){
+	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.')||(c=='-')||(c=='=')||(c=='$'));
 }
 
-int isSpecialCharacter(const char c){
+int isQuotedString(const char* str){
+	char firstChar = *str;
+	if(firstChar == '"' || firstChar == '\''){
+		const char* i;
+		for(i = str+1; *i!=firstChar && *i!='\0';i++);
+		if(*i == firstChar)return 1;
+		else return 0;
+	}
+	return 0;
+}
+
+int isValidAlias(const char* str){
+	while(*str!='\0'){
+		if(!((*str>='a' && *str<='z')||(*str>='A' && *str<='Z')||(*str>='0' && *str<='9')))return 0;
+		str++;
+	}
+	return 1;
+}	
+
+int isSpecialCharacter(char c){
 	switch(c){
 		case '>':
 		case '<':
@@ -26,7 +56,7 @@ int isSpecialCharacter(const char c){
 	}
 }
 
-int isWildCharacter(const char c){
+int isWildCharacter(char c){
 	switch(c){
 	case '*':
 	case '?':
@@ -41,18 +71,18 @@ const char* getNextToken(const char* readbuf, char* writebuf, const char* readbu
 	readbuf = skipWhiteSpaces(readbuf,readbufSize);
 	if(readbuf == readbufSize)return readbuf;
 	if(*readbuf == '"'){
-		readbuf++;
+		*writebuf++ = *readbuf++;
 		while(readbuf != readbufSize && *readbuf != '"'){
 			*writebuf++ = *readbuf++;
 		}
-		if(readbuf != readbufSize)readbuf++;
+		if(readbuf != readbufSize)*writebuf++ = *readbuf++;
 	}
 	else if(*readbuf == '\''){
-		readbuf++;
+		*writebuf++ = *readbuf++;
 		while(readbuf != readbufSize && *readbuf != '\''){
 			*writebuf++ = *readbuf++;
 		}
-		if(readbuf != readbufSize)readbuf++;
+		if(readbuf != readbufSize)*writebuf++ = *readbuf++;
 	}
 	else if(isAlpharethmetic(*readbuf)||isWildCharacter(*readbuf)){
 		while(readbuf != readbufSize && (isAlpharethmetic(*readbuf)||isWildCharacter(*readbuf))){
@@ -72,18 +102,37 @@ const char* getNextToken(const char* readbuf, char* writebuf, const char* readbu
 
 
 
+int rmQuotesFromString(char* str){
+	if(*str == '"'){
+		char* i;
+		for(i = str+1; *i!='"' && *i!='\0';i++);
+		if(*i=='\0')return 1;
+		*i='\0';
+	}
+	else if(*str == '\''){
+		char* i;
+		for(i = str+1; *i!='\'' && *i!='\0';i++);
+		if(*i=='\0')return 1;
+		*i='\0';	
+	}
+	else return 0;
+	memmove(str,str+1,strlen(str));
+	return 0;
+}
+
+
+
 
 void createTokenList(const char* readbuf, List* tokenList){
-	listInit(tokenList,sizeof(char)*100);
+	listInit(tokenList,sizeof(char)*MAXTOKENSIZE);
 	const char* ptr = readbuf;
 	int length = strlen(readbuf);
-	char buffer[100];
+	char buffer[MAXTOKENSIZE];
 	while(skipWhiteSpaces(ptr,length + readbuf) != length + readbuf){
 		ptr = getNextToken(ptr,buffer, length + readbuf);
 		listAppend(tokenList,buffer);
 	}
 }
-
 
 
 

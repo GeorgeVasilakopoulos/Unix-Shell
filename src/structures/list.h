@@ -7,14 +7,14 @@ struct listnode{
 
 
 typedef struct listStruct{
-	unsigned int sizeOfItem;
+	size_t sizeOfItem;
 	struct listnode* head;
 	struct listnode* end;
 	int itemsCount;
 }List;
 
 
-void listInit(List* list, unsigned int sizeOfItem);
+void listInit(List* list, size_t sizeOfItem);
 void listPrepend(List* list, void* data);
 void listAppend(List* list, void* data);
 void listAddBefore(List* list, struct listnode* existingNode, void* data);
