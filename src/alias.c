@@ -64,7 +64,7 @@ void replaceAliasesInList(List* tokenList){
 	listInit(&result,sizeof(char)*MAXBUFSIZE);
 	const char* alias;
 	for(struct listnode* i = listFront(tokenList); i != NULL; i = nextNode(i)){
-		if(alias = findAlias(getDataPointer(i))){	//If the token is a registered alias
+		if((alias = findAlias(getDataPointer(i)))){	//If the token is a registered alias
 			List tempList;
 			listInit(&tempList,sizeof(char)*MAXBUFSIZE);	
 			createTokenList(alias,&tempList);		//Transform aliased instruction into token list

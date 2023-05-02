@@ -211,8 +211,6 @@ int interpretInstruction(const char* readbuf){
 		return exitCode;						\
 	}											
 
-
-	int length = strlen(readbuf);
 	const char* commandName;
 	const char* arguments[MAXARGUMENTS]={};
 	int argumentCounter = 1;
