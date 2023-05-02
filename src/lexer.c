@@ -21,7 +21,7 @@ const char* skipWhiteSpaces(const char* readbuf, const char* readbufSize){
 }
 
 int isAlpharethmetic(char c){
-	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.')||(c=='-')||(c=='=')||(c=='$'));
+	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.')||(c=='-')||(c=='=')||(c=='$')||(c=='_'));
 }
 
 int isQuotedString(const char* str){
@@ -37,7 +37,7 @@ int isQuotedString(const char* str){
 
 int isValidAlias(const char* str){
 	while(*str!='\0'){
-		if(!((*str>='a' && *str<='z')||(*str>='A' && *str<='Z')||(*str>='0' && *str<='9')))return 0;
+		if(!((*str>='a' && *str<='z')||(*str>='A' && *str<='Z')||(*str>='0' && *str<='9')||(*str == '_')))return 0;
 		str++;
 	}
 	return 1;
