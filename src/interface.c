@@ -21,6 +21,7 @@ void possiblyCloseFile(int filedes){
 	if(filedes != 1 && filedes != 0)close(filedes);
 }
 
+static pid_t childProcessID;
 
 //Fork the current process and execute the given command. Set waitForChild = 0 for parallel (backrgound execution)
 void forkExecute(int inputfd, int outputfd, const char* commandName, const char* arguments[], int waitForChild){
@@ -35,7 +36,8 @@ void forkExecute(int inputfd, int outputfd, const char* commandName, const char*
 	possiblyCloseFile(inputfd);
 	possiblyCloseFile(outputfd);
 	if(waitForChild){
-		while(wait(NULL) != pid); //Wait for child process to terminate.
+		childProcessID = pid;
+		while(waitpid(pid, NULL, WUNTRACED) != pid); //Wait for child process to terminate.
 	}
 }
 
@@ -60,6 +62,25 @@ void clearHistory(){
 	destructList(&instructionHistory);
 }
 
+void signalHandler(int sigval){
+	if(sigval == SIGINT){
+		if(childProcessID){
+			kill(childProcessID,SIGKILL);
+			childProcessID=0;
+		}
+		else printf("\n"); 
+		signal(SIGINT,signalHandler);
+	}
+	else if(sigval == SIGTSTP){
+		if(childProcessID){
+			kill(childProcessID,SIGTSTP);
+			childProcessID=0;
+		}
+		else printf("\n");
+		signal(SIGTSTP,signalHandler);
+	}
+}
+
 
 
 int main(){
@@ -70,12 +91,15 @@ int main(){
 	aliasInit();
 	listInit(&instructionHistory,sizeof(char**));
 
+	signal(SIGINT,signalHandler);
+	signal(SIGTSTP,signalHandler);
 
+	printf("%s",myshell);
 	while(1){
-		printf("%s",myshell);
 		scanf(" %[^\n]",buffer);
 		if(!strcmp(buffer,"\n"))continue;
 		if(interpretInstruction(buffer))break;
+		printf("%s",myshell);
 	}
 
 	clearHistory();
