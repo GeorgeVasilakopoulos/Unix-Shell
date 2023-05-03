@@ -135,6 +135,15 @@ void createTokenList(const char* readbuf, List* tokenList){
 }
 
 
+//0 for OK, 1 for syntax error (missing closing " or ')
+int removeQuotations(List* tokenList){
+	for(struct listnode* i = listFront(tokenList); i!=NULL; i = nextNode(i)){
+		char* token = getDataPointer(i);
+		if(rmQuotesFromString(token))return 1;	
+	}
+	return 0;
+}
+
 
 
 

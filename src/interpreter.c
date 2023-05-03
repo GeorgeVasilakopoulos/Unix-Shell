@@ -11,7 +11,6 @@
 #include "interface.h"
 
 
-extern List instructionHistory;
 
 void printtoken(void* data){
 	printf("Token is %s\n", (char*)data);
@@ -57,21 +56,17 @@ static int Execute_prev(struct listnode** ptr){
 		printf("prev: Expected positive number or newline after prev\n");
 		return 1;
 	}
-
-	char** inst = getDataPointer(getNodeWithIndex(&instructionHistory,index-1));
-	if(!inst){
+	char* previousInstruction = fetchFromHistory(index);
+	if(!previousInstruction){
 		printf("prev: Instruction could not be retrieved\n");
 		return 1;
 	}
-
-	char answer='\0';
-	while(answer != 'y' && answer != 'n'){
-		printf("prev: \"%s\". y/n?\n",*inst);	//Ask user whether to execute the instruction
-		getchar();answer = getchar();getchar();
-	}
-
-	if(answer == 'y')interpretInstruction(*inst);
+	interpretInstruction(previousInstruction,0);
 	return 0;
+}
+
+static void Execute_myHistory(){
+	printHistory(); //Defined in interface.c
 }
 
 
@@ -164,11 +159,12 @@ static int Handle_semicolon(struct listnode**ptr, const char** commandName,  con
 
 
 static int Handle_backgroundExecution(struct listnode** ptr, const char** commandName, const char** arguments, int* argumentCounter, int* IOfd){
+	int return_immediately = 0;
 	if(!nextNode(*ptr)){
-		printf("Expected instruction after \'&\'\n");
-		return 1;
+		return_immediately = 1;
 	}
 	forkExecute(IOfd[0],IOfd[1],*commandName,arguments,0);
+	if(return_immediately) return 1;
 	for(int i=0;i<*argumentCounter;i++){
 		arguments[i] = NULL;
 	}
@@ -191,19 +187,11 @@ void replaceEnvVariables(List *tokenList){
 	}
 }
 
-//0 for OK, 1 for syntax error (missing closing " or ')
-int removeQuotations(List* tokenList){
-	for(struct listnode* i = listFront(tokenList); i!=NULL; i = nextNode(i)){
-		char* token = getDataPointer(i);
-		if(rmQuotesFromString(token))return 1;	
-	}
-	return 0;
-}
 
 
 
 
-int interpretInstruction(const char* readbuf){
+int interpretInstruction(const char* readbuf, int storeInHistory){
 	
 	#define EXIT(exitCode)						\
 	{											\
@@ -227,20 +215,18 @@ int interpretInstruction(const char* readbuf){
 	}
 	if(!strcmp(commandName,"destroyalias")){
 		Execute_destroyalias(readbuf);
-		addToHistory(readbuf);
+		if(storeInHistory)addToHistory(readbuf);
 		EXIT(0);
 	}
 	if(!strcmp(commandName,"createalias")){
 		Execute_createalias(readbuf);
-		addToHistory(readbuf);
+		if(storeInHistory)addToHistory(readbuf);
 		EXIT(0);
 	}
 	
 	replaceAliasesInList(&tokenList);	///
-	// visitList(&tokenList,&printtoken);
 	replaceWildTokens(&tokenList);		///
 	replaceEnvVariables(&tokenList);
-	// visitList(&tokenList,&printtoken);
 	removeQuotations(&tokenList);
 
 	ptr = listFront(&tokenList);
@@ -251,8 +237,8 @@ int interpretInstruction(const char* readbuf){
 	}
 	if(!strcmp(commandName,"cd")){
 		if(!Execute_cd(readbuf,&ptr))
-			addToHistory(readbuf);
-		EXIT(0);
+			if(storeInHistory)addToHistory(readbuf);
+		EXIT(0);		
 	}
 	if(!strcmp(commandName,"exit")){	//Terminate execution of the shell
 		EXIT(1);
@@ -260,6 +246,11 @@ int interpretInstruction(const char* readbuf){
 	if(!strcmp(commandName,"prev")){
 		Execute_prev(&ptr);
 		EXIT(0);
+	}
+	if(!strcmp(commandName,"myHistory")){
+		Execute_myHistory();
+		EXIT(0);
+
 	}
 
 
@@ -291,7 +282,7 @@ int interpretInstruction(const char* readbuf){
 				EXIT(0);
 			}
 		}
-		else if(!strcmp(currentToken,"&")){
+		else if(!strcmp(currentToken,"&;")){
 			if(Handle_backgroundExecution(&ptr,&commandName,arguments,&argumentCounter,IOfd)){
 				EXIT(0);
 			}
@@ -302,7 +293,7 @@ int interpretInstruction(const char* readbuf){
 		currentToken = getDataPointer(ptr = nextNode(ptr));	//Get next token
 	}
 	forkExecute(IOfd[0],IOfd[1],commandName,arguments,1);	//Execute
-	addToHistory(readbuf);
+	if(storeInHistory)addToHistory(readbuf);
 	EXIT(0);
 }
 

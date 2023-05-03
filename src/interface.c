@@ -30,7 +30,7 @@ void forkExecute(int inputfd, int outputfd, const char* commandName, const char*
 		dup2(inputfd,0);
 		dup2(outputfd,1);
 		int statusCode = execvp(commandName,(char * const*)arguments);
-		printf("%s: Status code %d\n",commandName,statusCode);	//If error occured.
+		printf("%s: Command Not Found\n",commandName);	//If error occured.
 		exit(statusCode);
 	}
 	possiblyCloseFile(inputfd);
@@ -51,6 +51,20 @@ void addToHistory(const char* inst){
 		listRemove(&instructionHistory,listEnd(&instructionHistory));
 	}
 	listPrepend(&instructionHistory,&copyOfInst);	//Add instruction to the front.
+}
+
+
+void printHistory(){
+	int counter=listSize(&instructionHistory);
+	for(struct listnode* i = listEnd(&instructionHistory); i !=NULL;i = previousNode(i)){
+		printf("%3d: %s\n",counter--,*(char**)getDataPointer(i));
+	}
+}
+
+char* fetchFromHistory(int index){
+	char** previousInstruction = getDataPointer(getNodeWithIndex(&instructionHistory,index-1));
+	if(!previousInstruction)return NULL;
+	return *previousInstruction;
 }
 
 
@@ -98,7 +112,7 @@ int main(){
 	while(1){
 		scanf(" %[^\n]",buffer);
 		if(!strcmp(buffer,"\n"))continue;
-		if(interpretInstruction(buffer))break;
+		if(interpretInstruction(buffer,1))break;
 		printf("%s",myshell);
 	}
 
