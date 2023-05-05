@@ -105,7 +105,7 @@ void signalHandler(int sigval){
 
 int main(){
 
-	char* myshell = "in-mysh-now>";
+	char* myshell = "in-mysh-now:>";
 	char buffer[MAXBUFSIZE];
 
 	aliasInit();
