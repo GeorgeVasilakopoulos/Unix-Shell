@@ -23,7 +23,7 @@
     - ```myHistory```
     - ```prev```
 
-- Also, ```cd``` is also treated as an exception and its output cannot be redirected into files. 
+- Also, ```cd``` is treated as an exception and its output cannot be redirected into files. 
 
 ## Background Execution
 
