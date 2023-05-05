@@ -16,7 +16,7 @@ static int Execute_destroyalias(const char* readbuf){
 	const char* endPointer = readbuf + strlen(readbuf);
 	const char* ptr = getNextToken(readbuf,alias,endPointer); 	//Skip first word 'destroyalias'
 	ptr = getNextToken(ptr,alias,endPointer);					//Copy second word (alias)
-	if(skipWhiteSpaces(ptr,endPointer) != endPointer){
+	if(skipWhiteSpaces(ptr,endPointer) != endPointer && *skipWhiteSpaces(ptr,endPointer) != ';'){
 		printf("destroyalias: too many arguments\n");
 		return 1;
 	}

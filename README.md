@@ -21,8 +21,8 @@
     - ```createalias```
     - ```destroyalias```
     - ```exit```
-    - ```myHistory```
-    - ```prev```
+    - ```myHistory``` (displays history)
+    - ```prev```       (executes previous instructions)
 
 - Also, ```cd``` is treated as an exception and its output cannot be redirected into files. 
 
