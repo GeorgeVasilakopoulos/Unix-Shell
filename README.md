@@ -12,6 +12,7 @@
 
 - **Anything contained within single ```'``` or double ```"``` quotes is considered a single token**. Therefore, environment variables, wild character sequences or aliases within quotes are treated as **simple strings**. For example, ```echo "*.txt"``` simply prints ```*.txt``` and ```createalias myalias "echo 123"``` followed by ```myalias```, will print ```echo 123: command not found```.
 
+- Single instructions do not necessarily have to be followed by semicolons.
 
 - The instruction ```exit``` can be used in order to terminate the shell.
 
