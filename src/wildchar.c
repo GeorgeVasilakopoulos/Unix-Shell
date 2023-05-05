@@ -39,15 +39,17 @@ void replaceCharInString(char* string, char c, const char* subst){
 
 int replaceWildTokens(List* tokenList){
 	List dirList;	//List of files+directiories (produced by ls)
-	int did_ls=0;	
 	listInit(&dirList,sizeof(char)*MAXTOKENSIZE);
-	for (struct listnode* i = listFront(tokenList); i!=NULL;){ //Iterate tokenList
+	int did_ls=0;	
+
+	//Iterate tokenList
+	for (struct listnode* i = listFront(tokenList); i!=NULL;){ 
 		if(isWildString(getDataPointer(i))){
 			char pattern[MAXBUFSIZE];
 			pattern[0] = '^';
 			strcpy(pattern+1,getDataPointer(i));	//Copy token string to 'pattern'
-			// printf("%s\n",pattern);
-			//'pattern' becomes a valid regex pattern
+
+			//Transforming 'pattern' into a valid regex pattern
 			replaceCharInString(pattern,'*',"[a-zA-Z0-9_.+-]*");
 			replaceCharInString(pattern,'?',"[a-zA-Z0-9_.+-]");
 			replaceCharInString(pattern,'.',"\\.");
@@ -59,20 +61,27 @@ int replaceWildTokens(List* tokenList){
 				return 1;
 			}
 
-			//error check
 
-
-			if(!did_ls){	//Execute an ls, store results as tokens in dirList
+			//Execute an ls, store results as tokens in dirList
+			if(!did_ls){	
 				int p[2];
-				pipe(p);
+				if(pipe(p) < 0){
+					printf("Error in opening pipe\n");
+					return 1;
+				}
 				const char* arg[2] = {"ls",NULL};
-				forkExecute(0,p[1],"ls",arg,1);
+
+				//Result of ls will be produced in p[1]
+				forkExecute(0,p[1],"ls",arg,1);			
 				char buffer[MAX_CHARACTERS_PER_LS]={};
-				read(p[0],buffer,MAX_CHARACTERS_PER_LS);
-				// printf("buffer is%s\n",buffer);
+
+				//Copy result to buffer
+				read(p[0],buffer,MAX_CHARACTERS_PER_LS);	
 				possiblyCloseFile(p[0]);
 				possiblyCloseFile(p[1]);
-				createTokenList(buffer,&dirList);
+
+				//Create the token list
+				createTokenList(buffer,&dirList);		
 				did_ls=1;	//Do not execute ls again...
 			}
 
@@ -83,7 +92,9 @@ int replaceWildTokens(List* tokenList){
 					listAddBefore(tokenList,i,getDataPointer(j)); //Add the matched string right before the wild token.
 				}
 			}
-			regfree(&regex);	//Deallocate regex 
+
+			//Deallocate regex
+			regfree(&regex);	 
 			struct listnode* temp = i;
 			i = nextNode(i);
 			listRemove(tokenList,temp);	//Remove the wild token. All matched strings have been inserted

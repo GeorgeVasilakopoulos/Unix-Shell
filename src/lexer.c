@@ -14,11 +14,6 @@ int isWhiteSpace(char c){
 	}
 }
 
-const char* skipWhiteSpaces(const char* readbuf, const char* readbufSize){
-	while(readbuf != readbufSize && isWhiteSpace(*readbuf))
-		readbuf++;
-	return readbuf;
-}
 
 int isAlpharethmetic(char c){
 	return (c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9');
@@ -71,7 +66,18 @@ int isWildCharacter(char c){
 	}
 }
 
+//Returns a pointer to the next non white character of the string readbuf
+const char* skipWhiteSpaces(const char* readbuf, const char* readbufSize){
+	while(readbuf != readbufSize && isWhiteSpace(*readbuf))
+		readbuf++;
+	return readbuf;
+}
 
+
+
+//Copies the first token after readbuf into writebuf.
+//Returns a pointer immediately after the last copied character.
+//readbufSize is a pointer that points to the ending '\0' character of the string
 const char* getNextToken(const char* readbuf, char* writebuf, const char* readbufSize){
 	readbuf = skipWhiteSpaces(readbuf,readbufSize);
 	if(readbuf == readbufSize)return readbuf;
@@ -127,7 +133,7 @@ int rmQuotesFromString(char* str){
 
 
 
-
+//Splits the string stored in readbuf into tokens
 void createTokenList(const char* readbuf, List* tokenList){
 	listInit(tokenList,sizeof(char)*MAXTOKENSIZE);
 	const char* ptr = readbuf;
@@ -139,7 +145,7 @@ void createTokenList(const char* readbuf, List* tokenList){
 	}
 }
 
-
+//Removes quotations marks from a token list 
 //0 for OK, 1 for syntax error (missing closing " or ')
 int removeQuotations(List* tokenList){
 	for(struct listnode* i = listFront(tokenList); i!=NULL; i = nextNode(i)){

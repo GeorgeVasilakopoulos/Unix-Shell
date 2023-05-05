@@ -54,7 +54,9 @@ static int Execute_cd(const char** arguments){
 static int Execute_prev(struct listnode** ptr){
 	int index;
 	char* index_ptr = getDataPointer(*ptr = nextNode(*ptr));
-	if(!index_ptr)index = 1;else index = atoi(index_ptr); //If no number was given, execute the previous instruction
+
+	//If no number was given, execute the previous instruction
+	if(!index_ptr)index = 1;else index = atoi(index_ptr); 
 	if(index<=0){
 		printf("prev: Expected positive number or newline after prev\n");
 		return 1;
@@ -80,7 +82,9 @@ static int Handle_inputRedirection(struct listnode** ptr, const char** currentTo
 	}
 	*currentToken = getDataPointer(*ptr = nextNode(*ptr));
 	possiblyCloseFile(IOfd[0]); //Possibly close previous input file.
-	IOfd[0] = open(*currentToken,O_RDONLY|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);	//Open new file
+
+	//Open new file (possibly create one)
+	IOfd[0] = open(*currentToken,O_RDONLY|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);	
 	if(IOfd[0]==-1){
 		printf("Error in opening file \"%s\"\n",*currentToken);
 		return 1;
@@ -152,12 +156,13 @@ static int Handle_pipe(struct listnode**ptr, const char** commandName,  const ch
 }
 
 static int Handle_semicolon(struct listnode**ptr, const char** commandName,  const char** arguments, int* argumentCounter, int* IOfd){
+	int return_immediately = 0;
 	if(!nextNode(*ptr)){
-		printf("Expected instruction after \';\'\n");
-		return 1;
+		return_immediately = 1;
 	}
 	if(!strcmp(*commandName,"cd"))Execute_cd(arguments);
 	else forkExecute(IOfd[0],IOfd[1],*commandName,arguments,1);
+	if(return_immediately)return 1;
 	for(int i=0;i<*argumentCounter;i++){
 		arguments[i] = NULL;
 	}
@@ -175,7 +180,8 @@ static int Handle_backgroundExecution(struct listnode** ptr, const char** comman
 	if(!nextNode(*ptr)){
 		return_immediately = 1;
 	}
-	forkExecute(IOfd[0],IOfd[1],*commandName,arguments,0);
+	if(!strcmp(*commandName,"cd"))Execute_cd(arguments);
+	else forkExecute(IOfd[0],IOfd[1],*commandName,arguments,0);
 	if(return_immediately) return 1;
 	for(int i=0;i<*argumentCounter;i++){
 		arguments[i] = NULL;

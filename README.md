@@ -13,7 +13,9 @@
 - **Anything contained within single ```'``` or double ```"``` quotes is considered a single token**. Therefore, environment variables, wild character sequences or aliases within quotes are treated as **simple strings**. For example, ```echo "*.txt"``` simply prints ```*.txt``` and ```createalias myalias "echo 123"``` followed by ```myalias```, will print ```echo 123: command not found```.
 
 
-- The following meta-instructions can only be executed individually, meaning that they cannot be executed in series ```;```, or in parallel ```&;``` and their output cannot be redirected to files, or other instructions:
+- The instruction ```exit``` can be used in order to terminate the shell.
+
+- The following meta-instructions can only be executed individually, meaning that they cannot be executed in series ```;```, or in the background ```&;``` and their output cannot be redirected to files, or piped into other instructions:
 
     - ```createalias```
     - ```destroyalias```
@@ -21,44 +23,50 @@
     - ```myHistory```
     - ```prev```
 
-- Also, ```cd``` is treated as an exception and its output cannot be redirected into files.
+- Also, ```cd``` is also treated as an exception and its output cannot be redirected into files. 
 
 ## Background Execution
 
 - If one of the end tokens (; or &;) is found during the serial evaluation, the instruction that preceeded is executed by forking the shell process (```src/interface.c```) and calling ```execvp```. The original (parent process) either waits for the child process to terminate (;) or proceeds to interpret the rest of the given instruction (&;).   
 
-- If an instruction is executed in the background, the shell process does not supervise the execution in any way. 
+- If an instruction is executed in the background, the shell process does not supervise the execution. When the background process terminates, the shell process reaps it.
+
+- A background process can be running even after the termination of the shell.
+
+- A background process cannot be effected by ```Ctr + C``` and ```Ctr + Z``` interrupts.
 
 ## Input/Output Redirections
 
 - When an instruction is interpreted, initially, the input and output file streams are set to the standard values of 0 and 1. If one of the following tokens is observed (```>```, ```<```, ```>>```), then the Input-Output file descriptors ```IOfd[]``` change appropriately, to correspond to the requested file streams.
 
-- If one of the end tokens is observed, then the IO file descriptors are reset to 0 and 1.
+- If one of the end tokens is observed (```&;``` or ```;```), the instruction that preceeded is sent to be executed by forking. In the parent process, the IO file descriptors are reset to 0 and 1, for the next instruction to be interpreted.
 
 ## Piped Instructions
 
 - When the token ```|``` is observed, a pipe is created internally and, if the Output file descriptor of the previous instruction was the console (1), then it is reset to pass the output through the pipe. Also, the Input file descriptor of the instruction that proceeds is set to the output of the pipe.
 
-- By default, ```|``` implies parallel execution of the piped instructions. 
+- By default, ```|``` implies background execution of the piped instructions. In a series of pipes, only the last instruction is executed in the foreground.
 
 - If the Output fd of the instruction prior to ```|``` is not the console, then the input end of the created pipe is not assigned to any instruction.
 
 
 ## Signal Handling
 
-- ```Ctr + C``` terminates the execution of the running instruction, by passing ```SIGKILL```. 
+- ```Ctr + C``` triggers the signal SIGINT to both the child and the parent process. The parent process, however, simply ignores the signal.
+
+- In the same manner, ```Ctr + Z``` is ignored by the parent process.
+
+- **Backgound processes also ignore the ```Ctr + C``` and ```Ctr + Z``` signals**.
 
 - If multiple instructions are given in series, using ```;```, then the execution will continue after the next semicolon.
 
-- ```Ctr + Z``` is passed as is to the running instruction.
-
-- Neither of these signals effects the running shell.
+- When a child process terminates, a signal ```SIGCHLD``` is also triggered in the parent process. When that happens, the parent calls ```waitpid(-1,NULL,WNOHANG)``` in order to reap the child process.
 
 ## Wild Characters
 
 - The function ```replaceWildTokens()```, ```src/alias.c``` performs all the necessary transformations to the token list that is passed as argument.
 
-- If a token in the list is considered 'wild', then the shell executes an ```ls``` command internally.
+- If a token in the list is considered 'wild', then the shell executes an ```ls``` command internally, in order to compare the wild token with the contents of the current directory.
 
 - The output of the ```ls``` command is split into tokens and, using functions of the ```regex``` library, it is determined whether the files of the directory match the given pattern. The tokens that match the pattern are put in place of the corresponding wild token. 
 
@@ -96,7 +104,7 @@ alias1: Command Not Found
 in-mysh-now>
 ```
 
-- The aliased instruction is stored as a string within a hash table data structure, along with the alias name.
+- The aliased instruction is stored as a string pair within a hash table data structure.
 
 - The function ```replaceAliasesInList()``` finds the tokens of the list that match to aliased instructions. For each token that matches to an aliased instruction, it splits the corresponding aliased instruction into another token list and it recursively calls itself upon the new token list.
 
@@ -106,7 +114,7 @@ in-mysh-now>
 
 - The instruction history can be viewed with ```myHistory```. 
 
-- An instruction can be called with ```prev <index>``` where ```<index>``` is the id of the instruction, as listed in ```myHistory```. Alternatively, ```prev``` assumes that ```<index>``` is 1.
+- An instruction can be called with ```prev <index>``` where ```<index>``` is the id of the instruction, as listed in ```myHistory```. Alternatively, ```prev``` by itself assumes that ```<index>``` is 1.
 
 - Instructions that get executed by ```prev``` are not stored in the history.
 
