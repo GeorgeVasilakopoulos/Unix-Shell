@@ -27,7 +27,7 @@
 
 ## Background Execution
 
-- If one of the end tokens (; or &;) is found during the serial evaluation, the instruction that preceeded is executed by forking the shell process (```src/interface.c```) and calling ```execvp```. The original (parent process) either waits for the child process to terminate (;) or proceeds to interpret the rest of the given instruction (&;).   
+- If one of the end tokens (; or &;) is found during the serial evaluation, the instruction that preceeded is executed by forking the shell process (```src/interface.c```) and calling ```execvp```. The original (parent process) either waits for the child process to terminate (```;```) or proceeds to interpret the rest of the given instruction (```&;```).   
 
 - If an instruction is executed in the background, the shell process does not supervise the execution. When the background process terminates, the shell process reaps it.
 
@@ -78,30 +78,30 @@
 
 - If the first token of an instruction is ```createalias```, then the next token is expected to be the alias name and anything that comes after the alias name is considered to be the aliased instruction. This means that instructions like:
 ```
-in-mysh-now>createalias myalias ; 
-in-mysh-now>echo one myalias echo two
+in-mysh-now:>createalias myalias ; 
+in-mysh-now:>echo one myalias echo two
 one
 two
-in-mysh-now>
+in-mysh-now:>
 ```
  are valid.
 
 - Aliases also work **recursively**. For example:
 ```
-in-mysh-now>createalias alias1 echo one
-in-mysh-now>createalias anotheralias alias1 ; alias1  
-in-mysh-now>anotheralias
+in-mysh-now:>createalias alias1 echo one
+in-mysh-now:>createalias anotheralias alias1 ; alias1  
+in-mysh-now:>anotheralias
 one
 one
 ```
 
 - If an alias is destroyed but it is mentioned in another existing alias, the policy is the following:
 ```
-in-mysh-now>destroyalias alias1       
-in-mysh-now>anotheralias
+in-mysh-now:>destroyalias alias1       
+in-mysh-now:>anotheralias
 alias1: Command Not Found
 alias1: Command Not Found
-in-mysh-now>
+in-mysh-now:>
 ```
 
 - The aliased instruction is stored as a string pair within a hash table data structure.
