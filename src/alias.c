@@ -15,16 +15,16 @@ typedef struct aliasMap{
 	char mappedString[MAXBUFSIZE];
 }aliasMapping;
 
-//String hash function. Sum up ascii values. Result will be taken mod with n. of buckets.
+//A simple string hash function. Sum up ascii values. Result will be taken mod with n. of buckets.
 static int hash(void* data){
-	int sum = 0;
+	unsigned int sum = 0;
 	for(int i=0; i < strlen(((aliasMapping*)data)->alias); i++){
 		sum += ((aliasMapping*)data)->alias[i];
 	}
 	return sum;
 }
 
-//If two aliasMappings are about the same 'alias', 
+//If two aliasMappings have same 'aliases', 
 static int compare(void* data1, void* data2){
 	struct aliasMap* ptr1 = (struct aliasMap*)data1;
 	struct aliasMap* ptr2 = (struct aliasMap*)data2;
@@ -33,7 +33,7 @@ static int compare(void* data1, void* data2){
 }
 
 
-
+//Initialization
 void aliasInit(){
 	hashInit(&aliasTable,sizeof(aliasMapping),&hash);
 }
@@ -64,10 +64,12 @@ void replaceAliasesInList(List* tokenList){
 	listInit(&result,sizeof(char)*MAXBUFSIZE);
 	const char* alias;
 	for(struct listnode* i = listFront(tokenList); i != NULL; i = nextNode(i)){
-		if((alias = findAlias(getDataPointer(i)))){	//If the token is a registered alias
+		
+		//If the token is a registered alias
+		if((alias = findAlias(getDataPointer(i)))){	
 			List tempList;
 			listInit(&tempList,sizeof(char)*MAXBUFSIZE);	
-			createTokenList(alias,&tempList);		//Transform aliased instruction into token list
+			createTokenList(alias,&tempList);		//Transform aliased instruction into a temp token list
 			replaceAliasesInList(&tempList);		//Recursively replace aliases in list
 			listCat(&result,&tempList,&result);		//Concatenate results
 			destructList(&tempList);
@@ -85,7 +87,10 @@ void replaceAliasesInList(List* tokenList){
 
 void removeAlias(const char* alias){
 	aliasMapping data;
+	
 	strcpy(data.alias,alias);
+	//Initialization of data.mappedString is unnecessary
+	
 	hashRemove(&aliasTable,&data,&compare);
 }
 

@@ -3,6 +3,7 @@
 
 int isWhiteSpace(char c);
 int isAlpharethmetic(char c);
+int isValidCharacter(char c);
 int isSpecialCharacter(char c);
 int isWildCharacter(char c);
 int isQuotedString(const char* str);

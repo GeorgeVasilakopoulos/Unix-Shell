@@ -12,6 +12,17 @@
 
 - **Anything contained within single ```'``` or double ```"``` quotes is considered a single token**. Therefore, environment variables, wild character sequences or aliases within quotes are treated as **simple strings**. For example, ```echo "*.txt"``` simply prints ```*.txt``` and ```createalias myalias "echo 123"``` followed by ```myalias```, will print ```echo 123: command not found```.
 
+
+- The following meta-instructions can only be executed individually, meaning that they cannot be executed in series ```;```, or in parallel ```&;``` and their output cannot be redirected to files, or other instructions:
+
+    - ```createalias```
+    - ```destroyalias```
+    - ```exit```
+    - ```myHistory```
+    - ```prev```
+
+- Also, ```cd``` is treated as an exception and its output cannot be redirected into files.
+
 ## Background Execution
 
 - If one of the end tokens (; or &;) is found during the serial evaluation, the instruction that preceeded is executed by forking the shell process (```src/interface.c```) and calling ```execvp```. The original (parent process) either waits for the child process to terminate (;) or proceeds to interpret the rest of the given instruction (&;).   

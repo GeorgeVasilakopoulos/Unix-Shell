@@ -21,7 +21,12 @@ const char* skipWhiteSpaces(const char* readbuf, const char* readbufSize){
 }
 
 int isAlpharethmetic(char c){
-	return ((c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9')||(c=='/')||(c=='.')||(c=='-')||(c=='=')||(c=='$')||(c=='_'));
+	return (c>='a' && c<='z')||(c>='A' && c<='Z')||(c>='0' && c<='9');
+}
+
+
+int isValidCharacter(char c){
+	return (isAlpharethmetic(c) || (c=='/') || (c=='.') || (c=='-') || (c=='=') || (c=='$') || (c=='_'));
 }
 
 int isQuotedString(const char* str){
@@ -37,7 +42,7 @@ int isQuotedString(const char* str){
 
 int isValidAlias(const char* str){
 	while(*str!='\0'){
-		if(!((*str>='a' && *str<='z')||(*str>='A' && *str<='Z')||(*str>='0' && *str<='9')||(*str == '_')))return 0;
+		if(!(isAlpharethmetic(*str)||(*str == '_')))return 0;
 		str++;
 	}
 	return 1;
@@ -84,8 +89,8 @@ const char* getNextToken(const char* readbuf, char* writebuf, const char* readbu
 		}
 		if(readbuf != readbufSize)*writebuf++ = *readbuf++;
 	}
-	else if(isAlpharethmetic(*readbuf)||isWildCharacter(*readbuf)){
-		while(readbuf != readbufSize && (isAlpharethmetic(*readbuf)||isWildCharacter(*readbuf))){
+	else if(isValidCharacter(*readbuf)||isWildCharacter(*readbuf)){
+		while(readbuf != readbufSize && (isValidCharacter(*readbuf)||isWildCharacter(*readbuf))){
 			*writebuf++ = *readbuf++;
 		}		
 	}

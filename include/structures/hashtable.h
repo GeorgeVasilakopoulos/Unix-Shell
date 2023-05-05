@@ -9,7 +9,7 @@ struct tableEntry{
 
 typedef struct hashtable{
 	struct tableEntry*bucket[BUCKETNUMBER];
-	int sizeOfItem;
+	size_t sizeOfItem;
 	int itemsCount;
 	int(*hashFunction)(void*);
 }Hashtable;
@@ -17,7 +17,7 @@ typedef struct hashtable{
 
 
 
-void hashInit(Hashtable* table, int sizeOfItem, int (*hashFunction)(void*));
+void hashInit(Hashtable* table, size_t sizeOfItem, int (*hashFunction)(void*));
 void hashInsert(Hashtable* table, void* data);
 const void* hashFind(Hashtable* table, void* data, int (*compare)(void*, void*));
 void hashRemove(Hashtable* table, void* data, int (*compare)(void*, void*));

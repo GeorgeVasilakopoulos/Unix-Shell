@@ -10,7 +10,7 @@
 
 
 int isWildString(const char* readbuf){
-	if(isQuotedString(readbuf))return 0;
+	if(isQuotedString(readbuf))return 0;	//Quoted tokens should not be changed
 	while(*readbuf){
 		if(isWildCharacter(*readbuf)) return 1;
 		if(isWhiteSpace(*readbuf)) return 0;

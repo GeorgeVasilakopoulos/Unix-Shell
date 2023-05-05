@@ -2,7 +2,7 @@
 #include <string.h>
 #include "list.h"
  
-//Implementation of a (doubly) connected list structure
+//Implementation of a (doubly) connected, generic list structure
 //Supports any type of data
 
 
@@ -10,7 +10,7 @@ void listInit(List* list, size_t sizeOfItem){
 	list->itemsCount = 0;
 	list->head = NULL;
 	list->end = NULL;
-	list->sizeOfItem = sizeOfItem; 
+	list->sizeOfItem = sizeOfItem; //Size of data type
 }
 
 
@@ -40,6 +40,8 @@ void listAppend(List* list, void* data){
 	list->end = node;
 }
 
+
+//Add item before a certain list node
 void listAddBefore(List* list, struct listnode* existingNode, void* data){
 	if(existingNode == NULL || existingNode == list->head){
 		listPrepend(list,data);
@@ -164,10 +166,8 @@ void destructList(List* list){
 
 //Generic visit function
 void visitList(List* list, void (*visit)(void*)){
-	struct listnode* node = listFront(list);
-	for(int i=0;i<listSize(list) && node; i++){
+	for(struct listnode* node = listFront(list);node != NULL; node = nextNode(node)){
 		visit(getDataPointer(node));
-		node = nextNode(node);
 	}
 }
 

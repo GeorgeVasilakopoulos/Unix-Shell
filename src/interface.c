@@ -12,21 +12,26 @@
 #include "interpreter.h"
 #include "interface.h"
 
-List instructionHistory;
-
-
+static List instructionHistory;
 
 
 void possiblyCloseFile(int filedes){
 	if(filedes != 1 && filedes != 0)close(filedes);
 }
 
-static pid_t childProcessID;
+	
 
-//Fork the current process and execute the given command. Set waitForChild = 0 for parallel (backrgound execution)
+//Fork the current process and execute the given command. Set waitForChild = 0 for backrgound execution
 void forkExecute(int inputfd, int outputfd, const char* commandName, const char* arguments[], int waitForChild){
 	pid_t pid = fork();
 	if(!pid){			//Child process
+
+		//If this is a background instruction, ignore the signals
+		if(!waitForChild){		
+			signal(SIGINT,SIG_IGN);
+			signal(SIGTSTP,SIG_IGN);
+		}
+
 		dup2(inputfd,0);
 		dup2(outputfd,1);
 		int statusCode = execvp(commandName,(char * const*)arguments);
@@ -36,9 +41,9 @@ void forkExecute(int inputfd, int outputfd, const char* commandName, const char*
 	possiblyCloseFile(inputfd);
 	possiblyCloseFile(outputfd);
 	if(waitForChild){
-		childProcessID = pid;
 		while(waitpid(pid, NULL, WUNTRACED) != pid); //Wait for child process to terminate.
 	}
+
 }
 
 
@@ -46,14 +51,16 @@ void forkExecute(int inputfd, int outputfd, const char* commandName, const char*
 void addToHistory(const char* inst){
 	char* copyOfInst = malloc(sizeof(char)*(strlen(inst)+1));	//Storing copies!
 	strcpy(copyOfInst,inst);
-	if(listSize(&instructionHistory)>MAXHISTORY){	//Delete oldest instruction.
+
+	//Delete oldest instruction.
+	if(listSize(&instructionHistory)>MAXHISTORY){	
 		free(*(char**)getDataPointer(listEnd(&instructionHistory)));
 		listRemove(&instructionHistory,listEnd(&instructionHistory));
 	}
 	listPrepend(&instructionHistory,&copyOfInst);	//Add instruction to the front.
 }
 
-
+//Print instruction history: Oldest First
 void printHistory(){
 	int counter=listSize(&instructionHistory);
 	for(struct listnode* i = listEnd(&instructionHistory); i !=NULL;i = previousNode(i)){
@@ -61,9 +68,11 @@ void printHistory(){
 	}
 }
 
-char* fetchFromHistory(int index){
+
+//Fetch instruction by index. 1 means previous
+const char* fetchFromHistory(int index){
 	char** previousInstruction = getDataPointer(getNodeWithIndex(&instructionHistory,index-1));
-	if(!previousInstruction)return NULL;
+	if(!previousInstruction)return NULL;	//Unable to fetch instruction
 	return *previousInstruction;
 }
 
@@ -77,21 +86,18 @@ void clearHistory(){
 }
 
 void signalHandler(int sigval){
+	
+	//Simply ignore signals SIGINT and SIGTSTP
 	if(sigval == SIGINT){
-		if(childProcessID){
-			kill(childProcessID,SIGKILL);
-			childProcessID=0;
-		}
-		else printf("\n"); 
 		signal(SIGINT,signalHandler);
 	}
 	else if(sigval == SIGTSTP){
-		if(childProcessID){
-			kill(childProcessID,SIGTSTP);
-			childProcessID=0;
-		}
-		else printf("\n");
 		signal(SIGTSTP,signalHandler);
+	}
+
+	//When a child process terminates (bg/fg), the parent reaps them
+	else if(sigval == SIGCHLD){	
+		while(waitpid(-1,NULL,WNOHANG) > 0);
 	}
 }
 
@@ -107,7 +113,8 @@ int main(){
 
 	signal(SIGINT,signalHandler);
 	signal(SIGTSTP,signalHandler);
-
+	signal(SIGCHLD,signalHandler);
+	
 	printf("%s",myshell);
 	while(1){
 		scanf(" %[^\n]",buffer);
@@ -117,7 +124,6 @@ int main(){
 	}
 
 	clearHistory();
-
 	destructAlias();
 	return 0;
 }
