@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "structures/list.h"
 #include "lexer.h"
@@ -21,7 +22,7 @@ int isAlpharethmetic(char c){
 
 
 int isValidCharacter(char c){
-	return (isAlpharethmetic(c) || (c=='/') || (c=='.') || (c=='-') || (c=='=') || (c=='$') || (c=='_'));
+	return (isAlpharethmetic(c) || (c=='/') || (c=='.') || (c=='-') || (c=='=') || (c=='$') || (c=='_')|| (c==':'));
 }
 
 int isQuotedString(const char* str){
@@ -105,7 +106,10 @@ const char* getNextToken(const char* readbuf, char* writebuf, const char* readbu
 			*writebuf++ = *readbuf++;
 		}
 	}
-	
+	else{
+		printf("Invalid character: %c\nExiting\n",*readbuf);
+		exit(-1);
+	}
 
 	*writebuf = '\0';
 	return readbuf;
