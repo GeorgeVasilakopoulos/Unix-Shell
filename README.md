@@ -1,4 +1,6 @@
-# Systems Programming Assignment 1
+# Unix Shell
+
+Implementation of a (simplified) Unix-like shell in C. Assignment for class ```K24 Systems Programming```
 
 ### Compilation: ```make``` 
 ### Execution: ```./mysh```.
